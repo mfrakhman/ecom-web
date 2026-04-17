@@ -1,24 +1,114 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-import { clearToken } from '../services/auth'
+import { ref, computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import Navbar from '../components/Navbar.vue'
+import AppFooter from '../components/AppFooter.vue'
+import ProductCard from '../components/ProductCard.vue'
+import { getProducts, type Product } from '../services/products'
 
+const route = useRoute()
 const router = useRouter()
 
-function logout() {
-  clearToken()
-  router.push('/login')
+const allProducts = ref<Product[]>([])
+const loading = ref(false)
+const error = ref('')
+const LIMIT = 6
+
+const page = computed(() => Math.max(1, Number(route.query.page) || 1))
+const searchQuery = computed(() => (route.query.q as string) || '')
+const activeCategory = computed(() => (route.query.category as string) || '')
+
+const filtered = computed(() =>
+  activeCategory.value
+    ? allProducts.value.filter((p) => p.category === activeCategory.value)
+    : allProducts.value
+)
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / LIMIT)))
+const pageProducts = computed(() => {
+  const start = (page.value - 1) * LIMIT
+  return filtered.value.slice(start, start + LIMIT)
+})
+
+async function fetchProducts() {
+  loading.value = true
+  error.value = ''
+  try {
+    allProducts.value = await getProducts({ limit: 100, query: searchQuery.value })
+  } catch {
+    error.value = 'Failed to load products. Please try again.'
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(() => route.query.q, fetchProducts, { immediate: true })
+
+function goPage(p: number) {
+  router.push({ query: { ...route.query, page: p > 1 ? String(p) : undefined } })
 }
 </script>
 
 <template>
-  <div class="auth-container">
-    <div class="auth-card" style="text-align: center;">
-      <div class="auth-brand">
-        <div class="brand-logo">R</div>
-        <div class="brand-name">RetailCo</div>
-        <p class="brand-tagline">You are signed in</p>
+  <Navbar />
+
+  <main class="page-main">
+    <!-- Banner -->
+    <div class="banner">
+      <div class="banner-content">
+        <p class="banner-label">New arrivals</p>
+        <h2 class="banner-title">Shop the Latest Collection</h2>
+        <p class="banner-sub">Bags · Shoes · Clothes · Pants</p>
       </div>
-      <button class="btn-primary" style="margin-top: 8px;" @click="logout">Sign Out</button>
     </div>
-  </div>
+
+    <!-- Products -->
+    <section class="products-section">
+      <div class="products-header">
+        <h2 class="section-title">
+          <template v-if="activeCategory">{{ activeCategory.charAt(0) + activeCategory.slice(1).toLowerCase() }}</template>
+          <template v-else-if="searchQuery">Results for "{{ searchQuery }}"</template>
+          <template v-else>All Products</template>
+        </h2>
+        <span v-if="!loading" class="products-count">{{ filtered.length }} item{{ filtered.length !== 1 ? 's' : '' }}</span>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="loading" class="products-state">
+        <div class="spinner" />
+        <p>Loading products…</p>
+      </div>
+
+      <!-- Error -->
+      <div v-else-if="error" class="products-state">
+        <p class="state-error">{{ error }}</p>
+        <button class="btn-outline" @click="fetchProducts">Retry</button>
+      </div>
+
+      <!-- Empty -->
+      <div v-else-if="pageProducts.length === 0" class="products-state">
+        <p>No products found.</p>
+      </div>
+
+      <!-- Grid -->
+      <div v-else class="products-grid">
+        <ProductCard v-for="product in pageProducts" :key="product.id" :product="product" />
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="pagination">
+        <button class="page-btn" :disabled="page === 1" @click="goPage(page - 1)">‹</button>
+        <button
+          v-for="p in totalPages"
+          :key="p"
+          class="page-btn"
+          :class="{ active: p === page }"
+          @click="goPage(p)"
+        >{{ p }}</button>
+        <button class="page-btn" :disabled="page === totalPages" @click="goPage(page + 1)">›</button>
+      </div>
+    </section>
+  </main>
+
+  <AppFooter />
 </template>
