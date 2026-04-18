@@ -39,10 +39,8 @@ export async function getProductDetail(id: string): Promise<ProductDetail> {
 }
 
 export async function getProductSkus(productId: string): Promise<SkuInfo[]> {
-  const res = await fetch(`${BASE}/products/${productId}/skus`)
-  if (!res.ok) throw new Error('Failed to fetch SKUs')
-  const json = await res.json()
-  return Array.isArray(json) ? json : (json.data ?? [])
+  const detail = await getProductDetail(productId)
+  return detail.skus ?? []
 }
 
 export async function getProducts(params: {

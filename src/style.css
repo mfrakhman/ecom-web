@@ -321,6 +321,28 @@ code {
   color: var(--text-h);
 }
 
+.nav-cart-btn {
+  position: relative;
+  text-decoration: none;
+}
+
+.nav-cart-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
 .nav-dropdown-wrap {
   position: relative;
 }
@@ -1073,6 +1095,233 @@ code {
   }
 }
 
+/* ── Cart page ───────────────────────────────────────────────────────────── */
+
+.cart-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px;
+  width: 100%;
+}
+
+.cart-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin-bottom: 32px;
+}
+
+.cart-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 32px;
+  align-items: start;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cart-items {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg);
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+  }
+}
+
+.cart-item-product {
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 0 0 2px;
+}
+
+.cart-item-sku {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+
+.cart-item-meta {
+  color: var(--text);
+}
+
+.cart-item-price {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0;
+}
+
+.cart-item-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.qty-control {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.qty-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--code-bg);
+  color: var(--text-h);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: var(--border); }
+}
+
+.qty-value {
+  min-width: 36px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.cart-item-subtotal {
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 0;
+  font-size: 15px;
+}
+
+.cart-remove-btn {
+  font-size: 13px;
+  padding: 2px 8px;
+  height: auto;
+  color: var(--text);
+
+  &:hover { color: #ef4444; }
+}
+
+.cart-summary {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  background: var(--bg);
+  position: sticky;
+  top: 80px;
+}
+
+.cart-summary-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin: 0 0 16px;
+}
+
+.cart-summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.cart-summary-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+}
+
+.cart-summary-total {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text-h);
+}
+
+/* ── Order confirmation ───────────────────────────────────────────────────── */
+
+.confirm-container {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 80px 24px;
+  text-align: center;
+}
+
+.confirm-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+}
+
+.confirm-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin: 0 0 8px;
+}
+
+.confirm-sub {
+  color: var(--text);
+  margin: 0 0 32px;
+}
+
+.confirm-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  text-align: left;
+  margin-bottom: 32px;
+}
+
+.confirm-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 8px;
+
+  &:last-child { margin-bottom: 0; }
+}
+
+.confirm-row strong {
+  color: var(--text-h);
+}
+
+.confirm-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
 /* ── Admin ───────────────────────────────────────────────────────────────── */
 
 .admin-wrapper {
@@ -1821,4 +2070,101 @@ code {
   font-size: 14px;
   color: var(--text);
   margin: 0;
+}
+
+/* ── Orders page ─────────────────────────────────────────────────────────── */
+
+.orders-container {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.orders-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin: 0 0 32px;
+}
+
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.order-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.order-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--code-bg);
+}
+
+.order-id {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 0 0 2px;
+}
+
+.order-date {
+  font-size: 13px;
+  color: var(--text);
+  margin: 0;
+}
+
+.order-items {
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.order-item-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.order-item-sku { flex: 1; }
+
+.order-item-sub {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.order-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.order-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &[data-status="PENDING"]   { background: rgba(234,179,8,.15);  color: #b45309; }
+  &[data-status="COMPLETED"] { background: rgba(16,185,129,.12); color: #059669; }
+  &[data-status="FAILED"]    { background: rgba(239,68,68,.12);  color: #dc2626; }
 }

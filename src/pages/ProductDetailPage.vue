@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import Navbar from '../components/Navbar.vue'
 import AppFooter from '../components/AppFooter.vue'
-import { getProductDetail, getProductSkus, type ProductDetail, type SkuInfo } from '../services/products'
+import { getProductDetail, type ProductDetail, type SkuInfo } from '../services/products'
+import { addToCart } from '../services/cart'
 
 const route = useRoute()
+const router = useRouter()
 const id = route.params.id as string
 
 const product = ref<ProductDetail | null>(null)
@@ -44,14 +46,29 @@ const activeSkus = computed(() => skus.value.filter(s => s.isActive))
 
 const inStock = computed(() => (selectedSku.value?.stock?.amount ?? 0) > 0)
 
+const addedToCart = ref(false)
+
+function handleAddToCart() {
+  if (!selectedSku.value || !product.value) return
+  addToCart({
+    skuId: selectedSku.value.id,
+    skuCode: selectedSku.value.skuCode,
+    productId: product.value.id,
+    productName: product.value.name,
+    skuName: selectedSku.value.name,
+    color: selectedSku.value.color,
+    size: selectedSku.value.size,
+    price: Number(selectedSku.value.price),
+  })
+  addedToCart.value = true
+  setTimeout(() => { addedToCart.value = false }, 1500)
+}
+
 onMounted(async () => {
   try {
-    const [prod, skuList] = await Promise.all([
-      getProductDetail(id),
-      getProductSkus(id),
-    ])
+    const prod = await getProductDetail(id)
     product.value = prod
-    skus.value = skuList
+    skus.value = prod.skus ?? []
     if (activeSkus.value.length > 0) selectedSku.value = activeSkus.value[0]
   } catch {
     error.value = 'Failed to load product.'
@@ -133,9 +150,12 @@ onMounted(async () => {
                 </p>
               </div>
 
-              <button class="btn-primary" :disabled="!inStock" style="margin-top: 8px;">
-                {{ inStock ? 'Add to Cart' : 'Out of Stock' }}
-              </button>
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button class="btn-primary" :disabled="!inStock" @click="handleAddToCart">
+                  {{ addedToCart ? '✓ Added!' : inStock ? 'Add to Cart' : 'Out of Stock' }}
+                </button>
+                <button v-if="inStock" class="btn-outline" @click="router.push('/cart')">View Cart</button>
+              </div>
             </template>
 
             <p v-else class="pd-no-variants">No variants available for this product.</p>

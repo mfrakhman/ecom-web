@@ -4,13 +4,15 @@ import { useRoute, RouterLink } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import {
   getProduct, createSku, restockSku,
-  type ProductDetail, type Sku, type CreateSkuPayload,
+  type ProductDetail, type CreateSkuPayload,
 } from '../../services/admin'
+import { type SkuInfo } from '../../services/products'
 
 const route = useRoute()
 const id = route.params.id as string
 
 const product = ref<ProductDetail | null>(null)
+const skus = ref<SkuInfo[]>([])
 const loading = ref(false)
 const error = ref('')
 
@@ -18,7 +20,7 @@ const showSkuModal = ref(false)
 const showRestockModal = ref(false)
 const saving = ref(false)
 const modalError = ref('')
-const restockTarget = ref<Sku | null>(null)
+const restockTarget = ref<SkuInfo | null>(null)
 const restockQty = ref(1)
 
 const skuForm = ref<CreateSkuPayload>({
@@ -30,8 +32,9 @@ async function fetch() {
   loading.value = true
   error.value = ''
   try {
-    const res = await getProduct(id)
-    product.value = res.data
+    const productRes = await getProduct(id)
+    product.value = productRes.data
+    skus.value = productRes.data.skus ?? []
   } catch {
     error.value = 'Failed to load product.'
   } finally {
@@ -62,7 +65,7 @@ async function saveSku() {
   }
 }
 
-function openRestock(sku: Sku) {
+function openRestock(sku: SkuInfo) {
   restockTarget.value = sku
   restockQty.value = 1
   modalError.value = ''
@@ -132,10 +135,10 @@ onMounted(fetch)
               </tr>
             </thead>
             <tbody>
-              <tr v-if="product.skus.length === 0">
+              <tr v-if="skus.length === 0">
                 <td colspan="8" style="text-align:center; color: var(--text);">No SKUs yet.</td>
               </tr>
-              <tr v-for="sku in product.skus" :key="sku.id">
+              <tr v-for="sku in skus" :key="sku.id">
                 <td><code style="font-size:13px;">{{ sku.skuCode }}</code></td>
                 <td>{{ sku.name }}</td>
                 <td>{{ sku.size ?? '—' }}</td>
