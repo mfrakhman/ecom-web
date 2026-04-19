@@ -15,7 +15,7 @@ export interface Order {
   createdAt: string
 }
 
-function authHeaders() {
+function authHeaders(): Record<string, string> {
   const token = localStorage.getItem('access_token')
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
