@@ -58,6 +58,7 @@ function handleAddToCart() {
     skuName: selectedSku.value.name,
     color: selectedSku.value.color,
     size: selectedSku.value.size,
+    imageUrl: selectedSku.value.imageUrl ?? product.value.imageUrl ?? null,
     price: Number(selectedSku.value.price),
   })
   addedToCart.value = true
@@ -99,9 +100,10 @@ onMounted(async () => {
           <!-- Left: image -->
           <div
             class="pd-image"
-            :style="{ background: categoryGradient[product.category] ?? 'var(--border)' }"
+            :style="product.imageUrl ? {} : { background: categoryGradient[product.category] ?? 'var(--border)' }"
           >
-            <span class="pd-image-label">
+            <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" class="pd-image-photo" />
+            <span v-else class="pd-image-label">
               {{ product.category.charAt(0) + product.category.slice(1).toLowerCase() }}
             </span>
           </div>
@@ -125,7 +127,9 @@ onMounted(async () => {
                   :class="{ selected: selectedSku?.id === sku.id, oos: (sku.stock?.amount ?? 0) === 0 }"
                   @click="selectedSku = sku"
                 >
+                  <img v-if="sku.imageUrl" :src="sku.imageUrl" :alt="sku.name" class="pd-sku-thumb-img" />
                   <div
+                    v-else
                     class="pd-sku-thumb-color"
                     :style="{ background: colorToCSS(sku.color) }"
                   />

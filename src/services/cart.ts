@@ -8,6 +8,7 @@ export interface CartItem {
   skuName: string
   color: string | null
   size: string | null
+  imageUrl: string | null
   price: number
   quantity: number
 }

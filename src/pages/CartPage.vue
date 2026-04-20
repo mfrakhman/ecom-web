@@ -64,6 +64,9 @@ async function placeOrder() {
         <!-- Items -->
         <div class="cart-items">
           <div v-for="item in items" :key="item.skuId" class="cart-item">
+            <div v-if="item.imageUrl" class="cart-item-img-wrap">
+              <img :src="item.imageUrl" :alt="item.skuName" class="cart-item-img" />
+            </div>
             <div class="cart-item-info">
               <p class="cart-item-product">{{ item.productName }}</p>
               <p class="cart-item-sku">{{ item.skuName }}

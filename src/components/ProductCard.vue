@@ -74,8 +74,9 @@ async function onHover() {
 <template>
   <div class="product-card" @mouseenter="onHover" @mouseleave="hovered = false">
     <!-- Image -->
-    <div class="product-card-img" :style="{ background: categoryGradient[product.category] }">
-      <span class="product-card-category">
+    <div class="product-card-img" :style="product.imageUrl ? {} : { background: categoryGradient[product.category] }">
+      <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" class="product-card-img-photo" />
+      <span v-else class="product-card-category">
         {{ product.category.charAt(0) + product.category.slice(1).toLowerCase() }}
       </span>
     </div>

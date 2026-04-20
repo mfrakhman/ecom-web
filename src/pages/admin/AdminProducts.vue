@@ -3,7 +3,11 @@ import { ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import { getProducts, type Product } from '../../services/products'
-import { createProduct, updateProduct, deleteProduct, CATEGORIES, type Category } from '../../services/admin'
+import {
+  createProduct, updateProduct, deleteProduct,
+  uploadProductImage, deleteProductImage,
+  CATEGORIES, type Category,
+} from '../../services/admin'
 
 const products = ref<Product[]>([])
 const loading = ref(false)
@@ -15,6 +19,9 @@ const modalError = ref('')
 const editingId = ref<string | null>(null)
 
 const form = ref({ name: '', description: '', category: 'BAGS' as Category })
+
+const imageUploading = ref<string | null>(null)
+const imageInputs = ref<Record<string, HTMLInputElement | null>>({})
 
 async function fetchProducts() {
   loading.value = true
@@ -69,6 +76,35 @@ async function remove(p: Product) {
   }
 }
 
+function triggerImageUpload(id: string) {
+  imageInputs.value[id]?.click()
+}
+
+async function onImageSelected(p: Product, e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  imageUploading.value = p.id
+  try {
+    await uploadProductImage(p.id, file)
+    await fetchProducts()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : 'Upload failed.')
+  } finally {
+    imageUploading.value = null
+    ;(e.target as HTMLInputElement).value = ''
+  }
+}
+
+async function removeImage(p: Product) {
+  if (!confirm(`Remove image for "${p.name}"?`)) return
+  try {
+    await deleteProductImage(p.id)
+    await fetchProducts()
+  } catch (e) {
+    alert(e instanceof Error ? e.message : 'Failed to delete image.')
+  }
+}
+
 onMounted(fetchProducts)
 </script>
 
@@ -87,6 +123,7 @@ onMounted(fetchProducts)
         <table class="admin-table">
           <thead>
             <tr>
+              <th>Image</th>
               <th>Name</th>
               <th>Category</th>
               <th>Description</th>
@@ -95,9 +132,39 @@ onMounted(fetchProducts)
           </thead>
           <tbody>
             <tr v-if="products.length === 0">
-              <td colspan="4" style="text-align:center; color: var(--text);">No products yet.</td>
+              <td colspan="5" style="text-align:center; color: var(--text);">No products yet.</td>
             </tr>
             <tr v-for="p in products" :key="p.id">
+              <td>
+                <div class="admin-img-cell">
+                  <img v-if="p.imageUrl" :src="p.imageUrl" :alt="p.name" class="admin-thumb" />
+                  <div v-else class="admin-thumb admin-thumb--empty">—</div>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style="display:none"
+                    :ref="el => imageInputs[p.id] = el as HTMLInputElement"
+                    @change="onImageSelected(p, $event)"
+                  />
+                  <div class="admin-img-actions">
+                    <button
+                      class="btn-ghost btn-xs"
+                      :disabled="imageUploading === p.id"
+                      @click="triggerImageUpload(p.id)"
+                    >
+                      {{ imageUploading === p.id ? '…' : p.imageUrl ? 'Replace' : 'Upload' }}
+                    </button>
+                    <button
+                      v-if="p.imageUrl"
+                      class="btn-ghost btn-xs btn-ghost--danger"
+                      @click="removeImage(p)"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </td>
               <td>
                 <RouterLink :to="`/admin/products/${p.id}`" class="table-link">{{ p.name }}</RouterLink>
               </td>

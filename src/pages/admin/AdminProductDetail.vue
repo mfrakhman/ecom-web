@@ -4,6 +4,8 @@ import { useRoute, RouterLink } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import {
   getProduct, createSku, restockSku,
+  uploadProductImage, deleteProductImage,
+  uploadSkuImage, deleteSkuImage,
   type ProductDetail, type CreateSkuPayload,
 } from '../../services/admin'
 import { type SkuInfo } from '../../services/products'
@@ -28,7 +30,12 @@ const skuForm = ref<CreateSkuPayload>({
   price: 0, isActive: true, product_id: id, quantity: 0,
 })
 
-async function fetch() {
+const productImageInput = ref<HTMLInputElement | null>(null)
+const productImageUploading = ref(false)
+const skuImageInputs = ref<Record<string, HTMLInputElement | null>>({})
+const skuImageUploading = ref<string | null>(null)
+
+async function fetchProduct() {
   loading.value = true
   error.value = ''
   try {
@@ -57,7 +64,7 @@ async function saveSku() {
   try {
     await createSku(skuForm.value)
     showSkuModal.value = false
-    await fetch()
+    await fetchProduct()
   } catch (e) {
     modalError.value = e instanceof Error ? e.message : 'Failed to create SKU.'
   } finally {
@@ -79,7 +86,7 @@ async function saveRestock() {
   try {
     await restockSku(restockTarget.value.id, restockQty.value)
     showRestockModal.value = false
-    await fetch()
+    await fetchProduct()
   } catch (e) {
     modalError.value = e instanceof Error ? e.message : 'Failed to restock.'
   } finally {
@@ -87,7 +94,61 @@ async function saveRestock() {
   }
 }
 
-onMounted(fetch)
+async function onProductImageSelected(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  productImageUploading.value = true
+  try {
+    await uploadProductImage(id, file)
+    await fetchProduct()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : 'Upload failed.')
+  } finally {
+    productImageUploading.value = false
+    ;(e.target as HTMLInputElement).value = ''
+  }
+}
+
+async function removeProductImage() {
+  if (!confirm('Remove product image?')) return
+  try {
+    await deleteProductImage(id)
+    await fetchProduct()
+  } catch (e) {
+    alert(e instanceof Error ? e.message : 'Failed to remove image.')
+  }
+}
+
+function triggerSkuImageUpload(skuId: string) {
+  skuImageInputs.value[skuId]?.click()
+}
+
+async function onSkuImageSelected(sku: SkuInfo, e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  skuImageUploading.value = sku.id
+  try {
+    await uploadSkuImage(sku.id, file)
+    await fetchProduct()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : 'Upload failed.')
+  } finally {
+    skuImageUploading.value = null
+    ;(e.target as HTMLInputElement).value = ''
+  }
+}
+
+async function removeSkuImage(sku: SkuInfo) {
+  if (!confirm(`Remove image for SKU "${sku.skuCode}"?`)) return
+  try {
+    await deleteSkuImage(sku.id)
+    await fetchProduct()
+  } catch (e) {
+    alert(e instanceof Error ? e.message : 'Failed to remove image.')
+  }
+}
+
+onMounted(fetchProduct)
 </script>
 
 <template>
@@ -109,6 +170,37 @@ onMounted(fetch)
           </div>
         </div>
 
+        <!-- Product image management -->
+        <div class="admin-product-image-section">
+          <div class="admin-product-image-wrap">
+            <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" class="admin-product-image" />
+            <div v-else class="admin-product-image admin-product-image--empty">No image</div>
+          </div>
+          <div class="admin-img-actions" style="flex-direction: row; margin-top: 8px;">
+            <input
+              ref="productImageInput"
+              type="file"
+              accept="image/*"
+              style="display:none"
+              @change="onProductImageSelected"
+            />
+            <button
+              class="btn-outline btn-sm"
+              :disabled="productImageUploading"
+              @click="productImageInput?.click()"
+            >
+              {{ productImageUploading ? 'Uploading…' : product.imageUrl ? 'Replace Image' : 'Upload Image' }}
+            </button>
+            <button
+              v-if="product.imageUrl"
+              class="btn-ghost btn-sm btn-ghost--danger"
+              @click="removeProductImage"
+            >
+              Remove Image
+            </button>
+          </div>
+        </div>
+
         <div class="info-card">
           <p class="info-label">Description</p>
           <p>{{ product.description ?? '—' }}</p>
@@ -124,6 +216,7 @@ onMounted(fetch)
           <table class="admin-table">
             <thead>
               <tr>
+                <th>Image</th>
                 <th>SKU Code</th>
                 <th>Name</th>
                 <th>Size</th>
@@ -136,9 +229,39 @@ onMounted(fetch)
             </thead>
             <tbody>
               <tr v-if="skus.length === 0">
-                <td colspan="8" style="text-align:center; color: var(--text);">No SKUs yet.</td>
+                <td colspan="9" style="text-align:center; color: var(--text);">No SKUs yet.</td>
               </tr>
               <tr v-for="sku in skus" :key="sku.id">
+                <td>
+                  <div class="admin-img-cell">
+                    <img v-if="sku.imageUrl" :src="sku.imageUrl" :alt="sku.name" class="admin-thumb" />
+                    <div v-else class="admin-thumb admin-thumb--empty">—</div>
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style="display:none"
+                      :ref="el => skuImageInputs[sku.id] = el as HTMLInputElement"
+                      @change="onSkuImageSelected(sku, $event)"
+                    />
+                    <div class="admin-img-actions">
+                      <button
+                        class="btn-ghost btn-xs"
+                        :disabled="skuImageUploading === sku.id"
+                        @click="triggerSkuImageUpload(sku.id)"
+                      >
+                        {{ skuImageUploading === sku.id ? '…' : sku.imageUrl ? 'Replace' : 'Upload' }}
+                      </button>
+                      <button
+                        v-if="sku.imageUrl"
+                        class="btn-ghost btn-xs btn-ghost--danger"
+                        @click="removeSkuImage(sku)"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </td>
                 <td><code style="font-size:13px;">{{ sku.skuCode }}</code></td>
                 <td>{{ sku.name }}</td>
                 <td>{{ sku.size ?? '—' }}</td>

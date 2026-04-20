@@ -12,6 +12,7 @@ export interface Sku {
   color: string | null
   price: number
   isActive: boolean
+  imageUrl: string | null
   stock: { id: string; amount: number } | null
 }
 
@@ -20,6 +21,7 @@ export interface ProductDetail {
   name: string
   description: string | null
   category: Category
+  imageUrl: string | null
   skus: Sku[]
   createdAt: string
   updatedAt: string
@@ -81,4 +83,37 @@ export function createSku(data: CreateSkuPayload) {
 
 export function restockSku(id: string, quantity: number) {
   return req<{ message: string }>('POST', `/products/skus/${id}/restock`, { quantity })
+}
+
+async function upload<T>(path: string, file: File): Promise<T> {
+  const token = localStorage.getItem('access_token')
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  })
+  const json = await res.json()
+  if (!res.ok) {
+    const msg = Array.isArray(json.message) ? json.message[0] : json.message
+    throw new Error(msg || 'Upload failed')
+  }
+  return json
+}
+
+export function uploadProductImage(id: string, file: File) {
+  return upload<{ imageUrl: string }>(`/products/${id}/image`, file)
+}
+
+export function deleteProductImage(id: string) {
+  return req<{ message: string }>('DELETE', `/products/${id}/image`)
+}
+
+export function uploadSkuImage(id: string, file: File) {
+  return upload<{ imageUrl: string }>(`/products/skus/${id}/image`, file)
+}
+
+export function deleteSkuImage(id: string) {
+  return req<{ message: string }>('DELETE', `/products/skus/${id}/image`)
 }

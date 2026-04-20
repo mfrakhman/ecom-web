@@ -4,11 +4,13 @@ import { useRouter } from 'vue-router'
 import Navbar from '../components/Navbar.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { getMyOrders, type Order } from '../services/orders'
+import { getSkuById, type SkuInfo } from '../services/products'
 
 const router = useRouter()
 const orders = ref<Order[]>([])
 const loading = ref(false)
 const error = ref('')
+const skuMap = ref<Map<string, SkuInfo>>(new Map())
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat('id-ID', {
@@ -24,6 +26,12 @@ onMounted(async () => {
   loading.value = true
   try {
     orders.value = await getMyOrders()
+
+    const uniqueSkuIds = [...new Set(orders.value.flatMap(o => o.items.map(i => i.skuId)))]
+    const results = await Promise.allSettled(uniqueSkuIds.map(id => getSkuById(id)))
+    results.forEach((r, idx) => {
+      if (r.status === 'fulfilled') skuMap.value.set(uniqueSkuIds[idx], r.value)
+    })
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to load orders.'
   } finally {
@@ -59,8 +67,23 @@ onMounted(async () => {
 
           <div class="order-items">
             <div v-for="item in order.items" :key="item.id" class="order-item-row">
-              <span class="order-item-sku"><code style="font-size:12px;">{{ item.skuId.slice(0, 8) }}…</code></span>
-              <span>× {{ item.quantity }}</span>
+              <div class="order-item-img-wrap">
+                <img
+                  v-if="skuMap.get(item.skuId)?.imageUrl"
+                  :src="skuMap.get(item.skuId)!.imageUrl!"
+                  :alt="skuMap.get(item.skuId)?.name"
+                  class="order-item-img"
+                />
+                <div v-else class="order-item-img order-item-img--empty" />
+              </div>
+              <div class="order-item-detail">
+                <span class="order-item-name">{{ skuMap.get(item.skuId)?.name ?? item.skuId.slice(0, 8) + '…' }}</span>
+                <span class="order-item-meta">
+                  <template v-if="skuMap.get(item.skuId)?.color">{{ skuMap.get(item.skuId)?.color }}</template>
+                  <template v-if="skuMap.get(item.skuId)?.size"> · {{ skuMap.get(item.skuId)?.size }}</template>
+                </span>
+              </div>
+              <span class="order-item-qty">× {{ item.quantity }}</span>
               <span class="order-item-sub">{{ formatPrice(Number(item.price) * item.quantity) }}</span>
             </div>
           </div>
