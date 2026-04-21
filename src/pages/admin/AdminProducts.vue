@@ -6,7 +6,7 @@ import { getProducts, type Product } from '../../services/products'
 import {
   createProduct, updateProduct, deleteProduct,
   uploadProductImage, deleteProductImage,
-  CATEGORIES, type Category,
+  CATEGORIES, type Category, type CreateSkuInProductPayload,
 } from '../../services/admin'
 
 const products = ref<Product[]>([])
@@ -19,6 +19,11 @@ const modalError = ref('')
 const editingId = ref<string | null>(null)
 
 const form = ref({ name: '', description: '', category: 'BAGS' as Category })
+
+const skuForm = ref<CreateSkuInProductPayload>({
+  skuCode: '', name: '', description: '', size: '', color: '',
+  price: 0, isActive: true, quantity: 1,
+})
 
 const imageUploading = ref<string | null>(null)
 const imageInputs = ref<Record<string, HTMLInputElement | null>>({})
@@ -37,6 +42,7 @@ async function fetchProducts() {
 function openCreate() {
   editingId.value = null
   form.value = { name: '', description: '', category: 'BAGS' }
+  skuForm.value = { skuCode: '', name: '', description: '', size: '', color: '', price: 0, isActive: true, quantity: 1 }
   modalError.value = ''
   showModal.value = true
 }
@@ -55,7 +61,7 @@ async function save() {
     if (editingId.value) {
       await updateProduct(editingId.value, { name: form.value.name, description: form.value.description })
     } else {
-      await createProduct(form.value)
+      await createProduct({ ...form.value, skus: [skuForm.value] })
     }
     showModal.value = false
     await fetchProducts()
@@ -207,6 +213,45 @@ onMounted(fetchProducts)
                 </option>
               </select>
             </div>
+
+            <!-- First SKU — required on create -->
+            <template v-if="!editingId">
+              <p class="modal-section-label">First SKU <span style="color:var(--accent)">*</span></p>
+              <div class="modal-grid">
+                <div class="field">
+                  <label>SKU Code</label>
+                  <input v-model="skuForm.skuCode" type="text" placeholder="e.g. SHOE-001-BLK" required />
+                </div>
+                <div class="field">
+                  <label>SKU Name</label>
+                  <input v-model="skuForm.name" type="text" placeholder="SKU name" required />
+                </div>
+                <div class="field">
+                  <label>Size</label>
+                  <input v-model="skuForm.size" type="text" placeholder="e.g. 42, M, L" required />
+                </div>
+                <div class="field">
+                  <label>Color</label>
+                  <input v-model="skuForm.color" type="text" placeholder="e.g. Black" required />
+                </div>
+                <div class="field">
+                  <label>Price (IDR)</label>
+                  <input v-model.number="skuForm.price" type="number" min="0" required />
+                </div>
+                <div class="field">
+                  <label>Initial Stock</label>
+                  <input v-model.number="skuForm.quantity" type="number" min="1" required />
+                </div>
+              </div>
+              <div class="field">
+                <label>SKU Description</label>
+                <textarea v-model="skuForm.description" placeholder="SKU description" rows="2" required />
+              </div>
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="skuForm.isActive" />
+                <span>Active (visible to customers)</span>
+              </label>
+            </template>
 
             <div class="modal-actions">
               <button type="button" class="btn-ghost" @click="showModal = false">Cancel</button>

@@ -314,7 +314,7 @@ onMounted(fetchProduct)
               </div>
               <div class="field">
                 <label>Initial Stock</label>
-                <input v-model.number="skuForm.quantity" type="number" min="0" placeholder="0" required />
+                <input v-model.number="skuForm.quantity" type="number" min="1" placeholder="1" required />
               </div>
             </div>
 

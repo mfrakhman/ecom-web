@@ -100,9 +100,14 @@ onMounted(async () => {
           <!-- Left: image -->
           <div
             class="pd-image"
-            :style="product.imageUrl ? {} : { background: categoryGradient[product.category] ?? 'var(--border)' }"
+            :style="(selectedSku?.imageUrl || product.imageUrl) ? {} : { background: categoryGradient[product.category] ?? 'var(--border)' }"
           >
-            <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" class="pd-image-photo" />
+            <img
+              v-if="selectedSku?.imageUrl || product.imageUrl"
+              :src="selectedSku?.imageUrl ?? product.imageUrl!"
+              :alt="selectedSku?.name ?? product.name"
+              class="pd-image-photo"
+            />
             <span v-else class="pd-image-label">
               {{ product.category.charAt(0) + product.category.slice(1).toLowerCase() }}
             </span>

@@ -39,6 +39,24 @@ export interface CreateSkuPayload {
   quantity: number
 }
 
+export interface CreateSkuInProductPayload {
+  skuCode: string
+  name: string
+  description: string
+  size: string
+  color: string
+  price: number
+  isActive: boolean
+  quantity: number
+}
+
+export interface CreateProductPayload {
+  name: string
+  description: string
+  category: Category
+  skus: [CreateSkuInProductPayload, ...CreateSkuInProductPayload[]]
+}
+
 function headers() {
   const token = localStorage.getItem('access_token')
   return {
@@ -65,7 +83,7 @@ export function getProduct(id: string) {
   return req<{ message: string; data: ProductDetail }>('GET', `/products/${id}`)
 }
 
-export function createProduct(data: { name: string; description: string; category: Category }) {
+export function createProduct(data: CreateProductPayload) {
   return req<{ message: string; data: ProductDetail }>('POST', '/products', data)
 }
 
