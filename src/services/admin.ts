@@ -1,3 +1,5 @@
+import { safeFetch } from './http'
+
 const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
 
 export type Category = 'BAGS' | 'SHOES' | 'CLOTHES' | 'PANTS'
@@ -66,7 +68,7 @@ function headers() {
 }
 
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await safeFetch(`${BASE}${path}`, {
     method,
     headers: headers(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -107,7 +109,7 @@ async function upload<T>(path: string, file: File): Promise<T> {
   const token = localStorage.getItem('access_token')
   const form = new FormData()
   form.append('file', file)
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await safeFetch(`${BASE}${path}`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,

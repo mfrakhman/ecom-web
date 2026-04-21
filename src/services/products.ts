@@ -1,3 +1,5 @@
+import { safeFetch } from './http'
+
 const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
 
 export type Category = 'BAGS' | 'SHOES' | 'CLOTHES' | 'PANTS'
@@ -35,7 +37,7 @@ export interface ProductDetail {
 }
 
 export async function getProductDetail(id: string): Promise<ProductDetail> {
-  const res = await fetch(`${BASE}/products/${id}`)
+  const res = await safeFetch(`${BASE}/products/${id}`)
   if (!res.ok) throw new Error('Failed to fetch product')
   const json = await res.json()
   return json.data ?? json
@@ -47,7 +49,7 @@ export async function getProductSkus(productId: string): Promise<SkuInfo[]> {
 }
 
 export async function getSkuById(skuId: string): Promise<SkuInfo> {
-  const res = await fetch(`${BASE}/products/skus/${skuId}`)
+  const res = await safeFetch(`${BASE}/products/skus/${skuId}`)
   if (!res.ok) throw new Error('Failed to fetch SKU')
   const json = await res.json()
   return json.data ?? json
@@ -63,7 +65,7 @@ export async function getProducts(params: {
   if (params.limit) q.set('limit', String(params.limit))
   if (params.query) q.set('query', params.query)
 
-  const res = await fetch(`${BASE}/products?${q}`)
+  const res = await safeFetch(`${BASE}/products?${q}`)
   if (!res.ok) throw new Error('Failed to fetch products')
   const json = await res.json()
   // handle both {data: [...]} and [...] shapes

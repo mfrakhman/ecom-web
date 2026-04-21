@@ -1,3 +1,5 @@
+import { safeFetch } from './http'
+
 const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
 
 export interface CartItem {
@@ -23,7 +25,7 @@ function authHeaders(): Record<string, string> {
 }
 
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await safeFetch(`${BASE}${path}`, {
     method,
     headers: authHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,

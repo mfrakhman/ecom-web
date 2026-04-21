@@ -1,3 +1,5 @@
+import { safeFetch } from './http'
+
 const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
 
 export interface OrderItem {
@@ -21,14 +23,14 @@ function authHeaders(): Record<string, string> {
 }
 
 export async function getMyOrders(): Promise<Order[]> {
-  const res = await fetch(`${BASE}/order/user/me`, { headers: authHeaders() })
+  const res = await safeFetch(`${BASE}/order/user/me`, { headers: authHeaders() })
   const json = await res.json()
   if (!res.ok) throw new Error(json.message || 'Failed to fetch orders')
   return json.data ?? json
 }
 
 export async function getAllOrders(): Promise<Order[]> {
-  const res = await fetch(`${BASE}/order`, { headers: authHeaders() })
+  const res = await safeFetch(`${BASE}/order`, { headers: authHeaders() })
   const json = await res.json()
   if (!res.ok) throw new Error(json.message || 'Failed to fetch orders')
   return json.data ?? json
@@ -36,7 +38,7 @@ export async function getAllOrders(): Promise<Order[]> {
 
 export async function createOrder(items: { skuId: string; quantity: number }[]): Promise<Order> {
   const token = localStorage.getItem('access_token')
-  const res = await fetch(`${BASE}/order`, {
+  const res = await safeFetch(`${BASE}/order`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
