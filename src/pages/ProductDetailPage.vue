@@ -4,7 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import Navbar from '../components/Navbar.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { getProductDetail, type ProductDetail, type SkuInfo } from '../services/products'
-import { addToCart } from '../services/cart'
+import { useCart } from '../composables/useCart'
+import { getToken } from '../services/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -46,23 +47,25 @@ const activeSkus = computed(() => skus.value.filter(s => s.isActive))
 
 const inStock = computed(() => (selectedSku.value?.stock?.amount ?? 0) > 0)
 
+const { addItem } = useCart()
 const addedToCart = ref(false)
+const adding = ref(false)
+const addError = ref('')
 
-function handleAddToCart() {
+async function handleAddToCart() {
   if (!selectedSku.value || !product.value) return
-  addToCart({
-    skuId: selectedSku.value.id,
-    skuCode: selectedSku.value.skuCode,
-    productId: product.value.id,
-    productName: product.value.name,
-    skuName: selectedSku.value.name,
-    color: selectedSku.value.color,
-    size: selectedSku.value.size,
-    imageUrl: selectedSku.value.imageUrl ?? product.value.imageUrl ?? null,
-    price: Number(selectedSku.value.price),
-  })
-  addedToCart.value = true
-  setTimeout(() => { addedToCart.value = false }, 1500)
+  if (!getToken()) { router.push('/login'); return }
+  adding.value = true
+  addError.value = ''
+  try {
+    await addItem(selectedSku.value.id, 1)
+    addedToCart.value = true
+    setTimeout(() => { addedToCart.value = false }, 1500)
+  } catch (e) {
+    addError.value = e instanceof Error ? e.message : 'Failed to add to cart.'
+  } finally {
+    adding.value = false
+  }
 }
 
 onMounted(async () => {
@@ -159,9 +162,10 @@ onMounted(async () => {
                 </p>
               </div>
 
+              <p v-if="addError" class="auth-error" style="margin-top:8px;">{{ addError }}</p>
               <div style="display:flex; gap:8px; margin-top:8px;">
-                <button class="btn-primary" :disabled="!inStock" @click="handleAddToCart">
-                  {{ addedToCart ? '✓ Added!' : inStock ? 'Add to Cart' : 'Out of Stock' }}
+                <button class="btn-primary" :disabled="!inStock || adding" @click="handleAddToCart">
+                  {{ adding ? 'Adding…' : addedToCart ? '✓ Added!' : inStock ? 'Add to Cart' : 'Out of Stock' }}
                 </button>
                 <button v-if="inStock" class="btn-outline" @click="router.push('/cart')">View Cart</button>
               </div>

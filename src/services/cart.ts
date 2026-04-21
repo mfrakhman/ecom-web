@@ -1,58 +1,61 @@
-const CART_KEY = 'cart'
+const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
 
 export interface CartItem {
+  id: string
   skuId: string
-  skuCode: string
-  productId: string
-  productName: string
-  skuName: string
-  color: string | null
-  size: string | null
-  imageUrl: string | null
-  price: number
   quantity: number
+  price: number | null
 }
 
-export function getCart(): CartItem[] {
-  try {
-    return JSON.parse(localStorage.getItem(CART_KEY) ?? '[]')
-  } catch {
-    return []
+export interface Cart {
+  id: string
+  status: 'CART'
+  items: CartItem[]
+  createdAt: string
+}
+
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem('access_token')
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
 }
 
-function saveCart(items: CartItem[]) {
-  localStorage.setItem(CART_KEY, JSON.stringify(items))
-}
-
-export function addToCart(item: Omit<CartItem, 'quantity'>, qty = 1) {
-  const cart = getCart()
-  const existing = cart.find(i => i.skuId === item.skuId)
-  if (existing) {
-    existing.quantity += qty
-  } else {
-    cart.push({ ...item, quantity: qty })
+async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: authHeaders(),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+  const json = await res.json()
+  if (!res.ok) {
+    const msg = Array.isArray(json.message) ? json.message[0] : json.message
+    throw new Error(msg || 'Request failed')
   }
-  saveCart(cart)
-  window.dispatchEvent(new Event('cart-updated'))
+  return json
 }
 
-export function updateQty(skuId: string, quantity: number) {
-  const cart = getCart().map(i => i.skuId === skuId ? { ...i, quantity } : i)
-  saveCart(cart)
-  window.dispatchEvent(new Event('cart-updated'))
+export function getCart(): Promise<Cart> {
+  return req<Cart>('GET', '/order/cart')
 }
 
-export function removeFromCart(skuId: string) {
-  saveCart(getCart().filter(i => i.skuId !== skuId))
-  window.dispatchEvent(new Event('cart-updated'))
+export function addToCart(skuId: string, quantity = 1): Promise<Cart> {
+  return req<Cart>('POST', '/order/cart/items', { skuId, quantity })
 }
 
-export function clearCart() {
-  localStorage.removeItem(CART_KEY)
-  window.dispatchEvent(new Event('cart-updated'))
+export function updateCartItem(skuId: string, quantity: number): Promise<Cart> {
+  return req<Cart>('PATCH', `/order/cart/items/${skuId}`, { quantity })
 }
 
-export function cartCount(): number {
-  return getCart().reduce((sum, i) => sum + i.quantity, 0)
+export function removeFromCart(skuId: string): Promise<Cart> {
+  return req<Cart>('DELETE', `/order/cart/items/${skuId}`)
+}
+
+export async function clearCart(): Promise<void> {
+  await req('DELETE', '/order/cart')
+}
+
+export function checkout(): Promise<{ id: string; status: string }> {
+  return req('POST', '/order/cart/checkout')
 }

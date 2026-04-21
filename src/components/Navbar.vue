@@ -1,22 +1,21 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { clearToken, getToken } from '../services/auth'
-import { cartCount } from '../services/cart'
+import { useCart } from '../composables/useCart'
 
 const router = useRouter()
 const search = ref('')
 const showCategory = ref(false)
 const showUser = ref(false)
-const count = ref(cartCount())
 
+const { count, fetchCart, reset } = useCart()
 const isLoggedIn = computed(() => !!getToken())
 const CATEGORIES = ['BAGS', 'SHOES', 'CLOTHES', 'PANTS']
 
-function onCartUpdated() { count.value = cartCount() }
-
-onMounted(() => window.addEventListener('cart-updated', onCartUpdated))
-onUnmounted(() => window.removeEventListener('cart-updated', onCartUpdated))
+onMounted(() => {
+  if (isLoggedIn.value) fetchCart()
+})
 
 function submitSearch() {
   const q = search.value.trim()
@@ -31,6 +30,7 @@ function selectCategory(cat: string) {
 
 function logout() {
   clearToken()
+  reset()
   router.push('/login')
 }
 </script>
