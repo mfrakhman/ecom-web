@@ -29,7 +29,7 @@ async function loadSkuDetails() {
   const map = new Map<string, SkuInfo>()
   results.forEach((result, i) => {
     if (result.status === 'fulfilled') {
-      map.set(cart.value!.items[i].skuId, result.value.data)
+      map.set(cart.value!.items[i].skuId, result.value)
     }
   })
   skuMap.value = map
