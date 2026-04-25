@@ -25,7 +25,7 @@ export interface SkuInfo {
   isActive: boolean
   imageUrl: string | null
   available?: number | null
-  stock: { id: string; amount: number; reserved: number } | null
+  stock: { id: string; amount: number; reserved?: number } | null
 }
 
 export interface ProductDetail {
