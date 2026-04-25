@@ -24,7 +24,7 @@ export interface SkuInfo {
   price: number
   isActive: boolean
   imageUrl: string | null
-  available: number | null
+  available?: number | null
   stock: { id: string; amount: number; reserved: number } | null
 }
 

@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import Navbar from '../components/Navbar.vue'
 import AppFooter from '../components/AppFooter.vue'
-import { getOrderById, type Order, type PaymentStatus } from '../services/orders'
+import { getOrderById, type Order } from '../services/orders'
 
 const route = useRoute()
 const router = useRouter()
