@@ -6,6 +6,7 @@ import ProductDetailPage from '../pages/ProductDetailPage.vue'
 import CartPage from '../pages/CartPage.vue'
 import OrderConfirmationPage from '../pages/OrderConfirmationPage.vue'
 import OrdersPage from '../pages/OrdersPage.vue'
+import PaymentPage from '../pages/PaymentPage.vue'
 import { getToken, getRole } from '../services/auth'
 
 const AdminDashboard = () => import('../pages/admin/AdminDashboard.vue')
@@ -24,6 +25,7 @@ const router = createRouter({
     { path: '/cart', component: CartPage },
     { path: '/orders', component: OrdersPage },
     { path: '/orders/confirmation', component: OrderConfirmationPage },
+    { path: '/payment/:id', component: PaymentPage },
     { path: '/login', component: LoginPage },
     { path: '/register', component: RegisterPage },
     { path: '/admin', component: AdminDashboard },

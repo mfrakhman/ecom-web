@@ -9,10 +9,16 @@ export interface OrderItem {
   price: number
 }
 
+export type OrderStatus = 'CART' | 'PENDING' | 'COMPLETED' | 'CANCELLED'
+export type PaymentStatus = 'AWAITING' | 'PAID' | 'FAILED' | 'EXPIRED'
+
 export interface Order {
   id: string
   userId?: string
-  status: 'PENDING' | 'COMPLETED' | 'FAILED'
+  status: OrderStatus
+  paymentStatus: PaymentStatus | null
+  qrString: string | null
+  qrExpiresAt: string | null
   items: OrderItem[]
   createdAt: string
 }
@@ -33,6 +39,13 @@ export async function getAllOrders(): Promise<Order[]> {
   const res = await safeFetch(`${BASE}/order`, { headers: authHeaders() })
   const json = await res.json()
   if (!res.ok) throw new Error(json.message || 'Failed to fetch orders')
+  return json.data ?? json
+}
+
+export async function getOrderById(id: string): Promise<Order> {
+  const res = await safeFetch(`${BASE}/order/${id}`, { headers: authHeaders() })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.message || 'Failed to fetch order')
   return json.data ?? json
 }
 

@@ -67,7 +67,7 @@ async function placeOrder() {
   placing.value = true
   try {
     const order = await doCheckout()
-    router.push({ path: '/orders/confirmation', query: { id: order.id, status: order.status } })
+    router.push(`/payment/${order.id}`)
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to place order.'
   } finally {

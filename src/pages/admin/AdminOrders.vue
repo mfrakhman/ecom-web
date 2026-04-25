@@ -48,6 +48,7 @@ onMounted(async () => {
               <th>Order ID</th>
               <th>User ID</th>
               <th>Status</th>
+              <th>Payment</th>
               <th>Items</th>
               <th>Total</th>
               <th>Date</th>
@@ -60,6 +61,14 @@ onMounted(async () => {
               <td>
                 <span class="order-status" :data-status="order.status">{{ order.status }}</span>
               </td>
+              <td>
+                <span
+                  v-if="order.paymentStatus"
+                  class="payment-badge"
+                  :data-payment="order.paymentStatus"
+                >{{ order.paymentStatus }}</span>
+                <span v-else class="payment-badge payment-badge--none">—</span>
+              </td>
               <td>{{ order.items.length }}</td>
               <td>{{ formatPrice(orderTotal(order)) }}</td>
               <td style="white-space:nowrap;">{{ new Date(order.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) }}</td>
@@ -70,3 +79,21 @@ onMounted(async () => {
     </div>
   </AdminLayout>
 </template>
+
+<style scoped>
+.payment-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.payment-badge[data-payment="AWAITING"] { background: #fef9c3; color: #854d0e; }
+.payment-badge[data-payment="PAID"]     { background: #dcfce7; color: #166534; }
+.payment-badge[data-payment="FAILED"]   { background: #fee2e2; color: #991b1b; }
+.payment-badge[data-payment="EXPIRED"]  { background: #f3f4f6; color: #6b7280; }
+.payment-badge--none                    { color: #9ca3af; }
+</style>
