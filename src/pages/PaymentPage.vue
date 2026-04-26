@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import QRCode from 'qrcode'
 import Navbar from '../components/Navbar.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { getOrderById, type Order } from '../services/orders'
@@ -11,7 +10,7 @@ const router = useRouter()
 const orderId = route.params.id as string
 
 const order = ref<Order | null>(null)
-const qrDataUrl = ref('')
+const qrDataUrl = ref<string | null>(null)
 const loading = ref(true)
 const error = ref('')
 const secondsLeft = ref(0)
@@ -45,8 +44,8 @@ async function fetchOrder() {
   try {
     order.value = await getOrderById(orderId)
 
-    if (order.value.qrString && !qrDataUrl.value) {
-      qrDataUrl.value = await QRCode.toDataURL(order.value.qrString, { width: 280, margin: 2 })
+    if (order.value.qrImageUrl) {
+      qrDataUrl.value = order.value.qrImageUrl
     }
 
     if (order.value.qrExpiresAt) {

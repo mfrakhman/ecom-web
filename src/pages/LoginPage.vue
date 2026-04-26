@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { login, saveToken } from '../services/auth'
+import { login, saveToken, saveRefreshToken } from '../services/auth'
 
 const router = useRouter()
 
@@ -15,8 +15,9 @@ async function handleSubmit() {
   error.value = ''
   loading.value = true
   try {
-    const { access_token } = await login(email.value, password.value)
+    const { access_token, refresh_token } = await login(email.value, password.value)
     saveToken(access_token)
+    saveRefreshToken(refresh_token)
     router.push('/')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Login failed. Please try again.'

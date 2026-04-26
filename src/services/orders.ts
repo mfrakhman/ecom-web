@@ -18,6 +18,7 @@ export interface Order {
   status: OrderStatus
   paymentStatus: PaymentStatus | null
   qrString: string | null
+  qrImageUrl: string | null
   qrExpiresAt: string | null
   items: OrderItem[]
   createdAt: string

@@ -23,6 +23,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 export const TOKEN_KEY = 'access_token'
+export const REFRESH_KEY = 'refresh_token'
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
@@ -32,8 +33,17 @@ export function saveToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token)
 }
 
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_KEY)
+}
+
+export function saveRefreshToken(token: string): void {
+  localStorage.setItem(REFRESH_KEY, token)
+}
+
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(REFRESH_KEY)
 }
 
 export function getRole(): string | null {
@@ -48,7 +58,7 @@ export function getRole(): string | null {
 }
 
 export function login(email: string, password: string) {
-  return post<{ access_token: string }>('/auth/login', { email, password })
+  return post<{ access_token: string; refresh_token: string }>('/auth/login', { email, password })
 }
 
 export function register(email: string, username: string, password: string) {
