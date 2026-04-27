@@ -3,6 +3,8 @@ import { ref, computed, onMounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { clearToken, getToken } from '../services/auth'
 import { useCart } from '../composables/useCart'
+import { safeFetch } from '../services/http'
+import type { CategoryRef } from '../services/products'
 
 const router = useRouter()
 const search = ref('')
@@ -11,10 +13,20 @@ const showUser = ref(false)
 
 const { count, fetchCart, reset } = useCart()
 const isLoggedIn = computed(() => !!getToken())
-const CATEGORIES = ['BAGS', 'SHOES', 'CLOTHES', 'PANTS']
 
-onMounted(() => {
+const categories = ref<CategoryRef[]>([])
+const topLevel = computed(() => categories.value.filter(c => !c.parentId))
+
+onMounted(async () => {
   if (isLoggedIn.value) fetchCart()
+  try {
+    const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
+    const res = await safeFetch(`${BASE}/categories`)
+    const json = await res.json()
+    categories.value = (json.data ?? json) as CategoryRef[]
+  } catch {
+    // non-critical
+  }
 })
 
 function submitSearch() {
@@ -23,8 +35,8 @@ function submitSearch() {
   search.value = ''
 }
 
-function selectCategory(cat: string) {
-  router.push({ path: '/', query: cat ? { category: cat } : {} })
+function selectCategory(slug: string) {
+  router.push({ path: '/', query: slug ? { category: slug } : {} })
   showCategory.value = false
 }
 
@@ -57,12 +69,20 @@ function logout() {
             <div v-if="showCategory" class="nav-backdrop" @click="showCategory = false" />
             <div v-if="showCategory" class="dropdown-menu">
               <button class="dropdown-item" @click="selectCategory('')">All Categories</button>
-              <button
-                v-for="cat in CATEGORIES"
-                :key="cat"
-                class="dropdown-item"
-                @click="selectCategory(cat)"
-              >{{ cat.charAt(0) + cat.slice(1).toLowerCase() }}</button>
+              <template v-for="cat in topLevel" :key="cat.id">
+                <button class="dropdown-item" style="font-weight:600;" @click="selectCategory(cat.slug)">
+                  {{ cat.name }}
+                </button>
+                <button
+                  v-for="sub in categories.filter(c => c.parentId === cat.id)"
+                  :key="sub.id"
+                  class="dropdown-item"
+                  style="padding-left:20px;"
+                  @click="selectCategory(sub.slug)"
+                >
+                  {{ sub.name }}
+                </button>
+              </template>
             </div>
           </div>
         </nav>

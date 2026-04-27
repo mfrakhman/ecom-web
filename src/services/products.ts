@@ -2,38 +2,40 @@ import { safeFetch } from './http'
 
 const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
 
-export type Category = 'BAGS' | 'SHOES' | 'CLOTHES' | 'PANTS'
-
-export interface Product {
-  id: string
-  name: string
-  description: string | null
-  category: Category
-  imageUrl: string | null
-  createdAt: string
-  updatedAt: string
-}
+export interface ColorRef { id: string; name: string; slug: string; hex: string }
+export interface SizeRef  { id: string; name: string; slug: string; sizeGroup: string }
+export interface CategoryRef { id: string; name: string; slug: string; parentId: string | null }
+export interface ProductColorImage { id: string; colorId: string; imageUrl: string }
 
 export interface SkuInfo {
   id: string
   skuCode: string
-  name: string
-  description: string | null
-  size: string | null
-  color: string | null
+  colorId: string
+  color: ColorRef
+  sizeId: string | null
+  size: SizeRef | null
   price: number
+  compareAt: number | null
   isActive: boolean
-  imageUrl: string | null
-  available?: number | null
   stock: { id: string; amount: number; reserved?: number } | null
+  product?: { id: string; name: string; images?: ProductColorImage[] }
 }
 
-export interface ProductDetail {
+export interface Product {
   id: string
   name: string
+  slug: string
   description: string | null
-  category: Category
-  imageUrl: string | null
+  categoryId: string
+  category?: CategoryRef
+  sizeGroup: string | null
+  images?: ProductColorImage[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProductDetail extends Product {
+  images: ProductColorImage[]
   skus: SkuInfo[]
 }
 
@@ -69,6 +71,5 @@ export async function getProducts(params: {
   const res = await safeFetch(`${BASE}/products?${q}`)
   if (!res.ok) throw new Error('Failed to fetch products')
   const json = await res.json()
-  // handle both {data: [...]} and [...] shapes
   return Array.isArray(json) ? json : (json.data ?? [])
 }

@@ -17,26 +17,6 @@ const loading = ref(true)
 const error = ref('')
 const selectedSku = ref<SkuInfo | null>(null)
 
-const categoryGradient: Record<string, string> = {
-  BAGS:    'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
-  SHOES:   'linear-gradient(135deg, #f97316 0%, #f59e0b 100%)',
-  CLOTHES: 'linear-gradient(135deg, #aa3bff 0%, #ec4899 100%)',
-  PANTS:   'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
-}
-
-const COLORS: Record<string, string> = {
-  red: '#ef4444', blue: '#3b82f6', green: '#22c55e', black: '#1f2937',
-  white: '#e5e7eb', yellow: '#eab308', purple: '#a855f7', pink: '#ec4899',
-  orange: '#f97316', gray: '#9ca3af', grey: '#9ca3af', brown: '#a16207',
-  navy: '#1e3a8a', beige: '#d4a574', teal: '#0d9488', maroon: '#9f1239',
-  gold: '#d97706', silver: '#94a3b8', cream: '#fef3c7', olive: '#65a30d',
-}
-
-function colorToCSS(c: string | null) {
-  if (!c) return 'var(--border)'
-  return COLORS[c.toLowerCase().trim()] ?? c.toLowerCase()
-}
-
 function formatPrice(price: number) {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
@@ -44,8 +24,16 @@ function formatPrice(price: number) {
 }
 
 const activeSkus = computed(() => skus.value.filter(s => s.isActive))
-
 const inStock = computed(() => (selectedSku.value?.stock?.amount ?? 0) > 0)
+
+const displayImageUrl = computed(() => {
+  if (!product.value) return null
+  if (selectedSku.value) {
+    const img = product.value.images?.find(i => i.colorId === selectedSku.value!.colorId)
+    if (img) return img.imageUrl
+  }
+  return product.value.images?.[0]?.imageUrl ?? null
+})
 
 const { addItem } = useCart()
 const addedToCart = ref(false)
@@ -103,24 +91,22 @@ onMounted(async () => {
           <!-- Left: image -->
           <div
             class="pd-image"
-            :style="(selectedSku?.imageUrl || product.imageUrl) ? {} : { background: categoryGradient[product.category] ?? 'var(--border)' }"
+            :style="displayImageUrl ? {} : { background: 'var(--border)' }"
           >
             <img
-              v-if="selectedSku?.imageUrl || product.imageUrl"
-              :src="selectedSku?.imageUrl ?? product.imageUrl!"
-              :alt="selectedSku?.name ?? product.name"
+              v-if="displayImageUrl"
+              :src="displayImageUrl"
+              :alt="product.name"
               class="pd-image-photo"
             />
             <span v-else class="pd-image-label">
-              {{ product.category.charAt(0) + product.category.slice(1).toLowerCase() }}
+              {{ product.category?.name ?? '—' }}
             </span>
           </div>
 
           <!-- Right: info -->
           <div class="pd-info">
-            <span class="badge" :data-cat="product.category">
-              {{ product.category.charAt(0) + product.category.slice(1).toLowerCase() }}
-            </span>
+            <span class="badge">{{ product.category?.name ?? '—' }}</span>
             <h1 class="pd-name">{{ product.name }}</h1>
             <p class="pd-desc">{{ product.description ?? 'No description available.' }}</p>
 
@@ -135,13 +121,11 @@ onMounted(async () => {
                   :class="{ selected: selectedSku?.id === sku.id, oos: (sku.stock?.amount ?? 0) === 0 }"
                   @click="selectedSku = sku"
                 >
-                  <img v-if="sku.imageUrl" :src="sku.imageUrl" :alt="sku.name" class="pd-sku-thumb-img" />
                   <div
-                    v-else
                     class="pd-sku-thumb-color"
-                    :style="{ background: colorToCSS(sku.color) }"
+                    :style="{ background: sku.color?.hex ?? 'var(--border)' }"
                   />
-                  <span class="pd-sku-thumb-size">{{ sku.size ?? '—' }}</span>
+                  <span class="pd-sku-thumb-size">{{ sku.size?.name ?? '—' }}</span>
                   <span class="pd-sku-thumb-code">{{ sku.skuCode }}</span>
                 </button>
               </div>
@@ -151,15 +135,14 @@ onMounted(async () => {
             <template v-if="selectedSku">
               <div class="pd-sku-detail">
                 <div class="pd-price">{{ formatPrice(Number(selectedSku.price)) }}</div>
+                <div v-if="selectedSku.compareAt" style="text-decoration:line-through;color:var(--text);font-size:14px;margin-top:2px;">
+                  {{ formatPrice(Number(selectedSku.compareAt)) }}
+                </div>
 
                 <div class="pd-stock" :class="{ 'pd-stock--oos': !inStock }">
                   <span class="pd-stock-dot" :class="{ 'pd-stock-dot--oos': !inStock }" />
                   {{ inStock ? `${selectedSku.stock?.amount} in stock` : 'Out of stock' }}
                 </div>
-
-                <p v-if="selectedSku.description" class="pd-sku-desc">
-                  {{ selectedSku.description }}
-                </p>
               </div>
 
               <p v-if="addError" class="auth-error" style="margin-top:8px;">{{ addError }}</p>

@@ -69,18 +69,22 @@ onMounted(async () => {
             <div v-for="item in order.items" :key="item.id" class="order-item-row">
               <div class="order-item-img-wrap">
                 <img
-                  v-if="skuMap.get(item.skuId)?.imageUrl"
-                  :src="skuMap.get(item.skuId)!.imageUrl!"
-                  :alt="skuMap.get(item.skuId)?.name"
+                  v-if="skuMap.get(item.skuId)?.product?.images?.find(i => i.colorId === skuMap.get(item.skuId)!.colorId)?.imageUrl"
+                  :src="skuMap.get(item.skuId)!.product!.images!.find(i => i.colorId === skuMap.get(item.skuId)!.colorId)!.imageUrl"
+                  :alt="skuMap.get(item.skuId)?.product?.name"
                   class="order-item-img"
                 />
-                <div v-else class="order-item-img order-item-img--empty" />
+                <div
+                  v-else
+                  class="order-item-img"
+                  :style="{ background: skuMap.get(item.skuId)?.color?.hex ?? 'var(--border)', borderRadius: '6px' }"
+                />
               </div>
               <div class="order-item-detail">
-                <span class="order-item-name">{{ skuMap.get(item.skuId)?.name ?? item.skuId.slice(0, 8) + '…' }}</span>
+                <span class="order-item-name">{{ skuMap.get(item.skuId)?.product?.name ?? item.skuId.slice(0, 8) + '…' }}</span>
                 <span class="order-item-meta">
-                  <template v-if="skuMap.get(item.skuId)?.color">{{ skuMap.get(item.skuId)?.color }}</template>
-                  <template v-if="skuMap.get(item.skuId)?.size"> · {{ skuMap.get(item.skuId)?.size }}</template>
+                  <template v-if="skuMap.get(item.skuId)?.skuCode">{{ skuMap.get(item.skuId)?.skuCode }}</template>
+                  <template v-if="skuMap.get(item.skuId)?.size"> · {{ skuMap.get(item.skuId)?.size?.name }}</template>
                 </span>
               </div>
               <span class="order-item-qty">× {{ item.quantity }}</span>

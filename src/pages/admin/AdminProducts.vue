@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import { getProducts, type Product } from '../../services/products'
 import {
   createProduct, updateProduct, deleteProduct,
-  uploadProductImage, deleteProductImage,
-  CATEGORIES, type Category, type CreateSkuInProductPayload,
+  getCategories, getColors, getSizes,
+  type CategoryRef, type ColorRef, type SizeRef,
+  type CreateSkuInProductPayload,
 } from '../../services/admin'
 
 const products = ref<Product[]>([])
+const categories = ref<CategoryRef[]>([])
+const colors = ref<ColorRef[]>([])
 const loading = ref(false)
 const error = ref('')
 
@@ -18,15 +21,45 @@ const saving = ref(false)
 const modalError = ref('')
 const editingId = ref<string | null>(null)
 
-const form = ref({ name: '', description: '', category: 'BAGS' as Category })
+const SIZE_GROUPS = [
+  { value: '', label: 'None (bags, accessories)' },
+  { value: 'apparel', label: 'Apparel (XS–XXL)' },
+  { value: 'footwear_uk', label: 'Footwear UK (5–12)' },
+  { value: 'waist', label: 'Waist (W28–W38)' },
+]
+
+const form = ref({
+  name: '',
+  slug: '',
+  description: '',
+  categoryId: '',
+  sizeGroup: '',
+})
 
 const skuForm = ref<CreateSkuInProductPayload>({
-  skuCode: '', name: '', description: '', size: '', color: '',
+  skuCode: '', colorId: '', sizeId: undefined,
   price: 0, isActive: true, quantity: 1,
 })
 
-const imageUploading = ref<string | null>(null)
-const imageInputs = ref<Record<string, HTMLInputElement | null>>({})
+function slugify(text: string) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+watch(() => form.value.name, (val) => {
+  if (!editingId.value) form.value.slug = slugify(val)
+})
+
+const filteredSizes = ref<SizeRef[]>([])
+
+watch(() => form.value.sizeGroup, async (sg) => {
+  if (sg) {
+    const res = await getSizes(sg)
+    filteredSizes.value = res.data ?? []
+  } else {
+    filteredSizes.value = []
+    skuForm.value.sizeId = undefined
+  }
+})
 
 async function fetchProducts() {
   loading.value = true
@@ -39,17 +72,30 @@ async function fetchProducts() {
   }
 }
 
+async function fetchRefData() {
+  const [catRes, colorRes] = await Promise.all([getCategories(), getColors()])
+  categories.value = catRes.data ?? []
+  colors.value = colorRes.data ?? []
+}
+
 function openCreate() {
   editingId.value = null
-  form.value = { name: '', description: '', category: 'BAGS' }
-  skuForm.value = { skuCode: '', name: '', description: '', size: '', color: '', price: 0, isActive: true, quantity: 1 }
+  form.value = { name: '', slug: '', description: '', categoryId: categories.value[0]?.id ?? '', sizeGroup: '' }
+  skuForm.value = { skuCode: '', colorId: colors.value[0]?.id ?? '', sizeId: undefined, price: 0, isActive: true, quantity: 1 }
+  filteredSizes.value = []
   modalError.value = ''
   showModal.value = true
 }
 
 function openEdit(p: Product) {
   editingId.value = p.id
-  form.value = { name: p.name, description: p.description ?? '', category: p.category }
+  form.value = {
+    name: p.name,
+    slug: p.slug,
+    description: p.description ?? '',
+    categoryId: p.categoryId,
+    sizeGroup: p.sizeGroup ?? '',
+  }
   modalError.value = ''
   showModal.value = true
 }
@@ -59,9 +105,23 @@ async function save() {
   saving.value = true
   try {
     if (editingId.value) {
-      await updateProduct(editingId.value, { name: form.value.name, description: form.value.description })
+      await updateProduct(editingId.value, {
+        name: form.value.name,
+        slug: form.value.slug,
+        description: form.value.description,
+        categoryId: form.value.categoryId,
+        sizeGroup: form.value.sizeGroup || undefined,
+      })
     } else {
-      await createProduct({ ...form.value, skus: [skuForm.value] })
+      const payload = {
+        name: form.value.name,
+        slug: form.value.slug,
+        description: form.value.description || undefined,
+        categoryId: form.value.categoryId,
+        sizeGroup: form.value.sizeGroup || undefined,
+        skus: [{ ...skuForm.value, sizeId: skuForm.value.sizeId || undefined }] as [CreateSkuInProductPayload],
+      }
+      await createProduct(payload)
     }
     showModal.value = false
     await fetchProducts()
@@ -82,36 +142,10 @@ async function remove(p: Product) {
   }
 }
 
-function triggerImageUpload(id: string) {
-  imageInputs.value[id]?.click()
-}
-
-async function onImageSelected(p: Product, e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  imageUploading.value = p.id
-  try {
-    await uploadProductImage(p.id, file)
-    await fetchProducts()
-  } catch (err) {
-    alert(err instanceof Error ? err.message : 'Upload failed.')
-  } finally {
-    imageUploading.value = null
-    ;(e.target as HTMLInputElement).value = ''
-  }
-}
-
-async function removeImage(p: Product) {
-  if (!confirm(`Remove image for "${p.name}"?`)) return
-  try {
-    await deleteProductImage(p.id)
-    await fetchProducts()
-  } catch (e) {
-    alert(e instanceof Error ? e.message : 'Failed to delete image.')
-  }
-}
-
-onMounted(fetchProducts)
+onMounted(async () => {
+  await fetchRefData()
+  await fetchProducts()
+})
 </script>
 
 <template>
@@ -129,10 +163,10 @@ onMounted(fetchProducts)
         <table class="admin-table">
           <thead>
             <tr>
-              <th>Image</th>
               <th>Name</th>
               <th>Category</th>
-              <th>Description</th>
+              <th>Slug</th>
+              <th>Size Group</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -142,40 +176,11 @@ onMounted(fetchProducts)
             </tr>
             <tr v-for="p in products" :key="p.id">
               <td>
-                <div class="admin-img-cell">
-                  <img v-if="p.imageUrl" :src="p.imageUrl" :alt="p.name" class="admin-thumb" />
-                  <div v-else class="admin-thumb admin-thumb--empty">—</div>
-
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style="display:none"
-                    :ref="el => imageInputs[p.id] = el as HTMLInputElement"
-                    @change="onImageSelected(p, $event)"
-                  />
-                  <div class="admin-img-actions">
-                    <button
-                      class="btn-ghost btn-xs"
-                      :disabled="imageUploading === p.id"
-                      @click="triggerImageUpload(p.id)"
-                    >
-                      {{ imageUploading === p.id ? '…' : p.imageUrl ? 'Replace' : 'Upload' }}
-                    </button>
-                    <button
-                      v-if="p.imageUrl"
-                      class="btn-ghost btn-xs btn-ghost--danger"
-                      @click="removeImage(p)"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              </td>
-              <td>
                 <RouterLink :to="`/admin/products/${p.id}`" class="table-link">{{ p.name }}</RouterLink>
               </td>
-              <td><span class="badge" :data-cat="p.category">{{ p.category }}</span></td>
-              <td class="td-clamp">{{ p.description ?? '—' }}</td>
+              <td><span class="badge">{{ p.category?.name ?? p.categoryId }}</span></td>
+              <td><code style="font-size:12px;">{{ p.slug }}</code></td>
+              <td>{{ p.sizeGroup ?? '—' }}</td>
               <td>
                 <div class="action-btns">
                   <button class="btn-ghost" @click="openEdit(p)">Edit</button>
@@ -188,30 +193,43 @@ onMounted(fetchProducts)
       </div>
     </div>
 
-    <!-- Modal -->
     <Teleport to="body">
       <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
-        <div class="modal-box">
+        <div class="modal-box modal-box--wide">
           <h3 class="modal-title">{{ editingId ? 'Edit Product' : 'New Product' }}</h3>
-
           <p v-if="modalError" class="auth-error">{{ modalError }}</p>
 
           <form class="modal-form" @submit.prevent="save">
-            <div class="field">
-              <label>Name</label>
-              <input v-model="form.name" type="text" placeholder="Product name" required />
+            <div class="modal-grid">
+              <div class="field">
+                <label>Name</label>
+                <input v-model="form.name" type="text" placeholder="Product name" required />
+              </div>
+              <div class="field">
+                <label>Slug</label>
+                <input v-model="form.slug" type="text" placeholder="product-slug" required />
+              </div>
             </div>
+
             <div class="field">
               <label>Description</label>
-              <textarea v-model="form.description" placeholder="Description" rows="3" required />
+              <textarea v-model="form.description" placeholder="Optional description" rows="2" />
             </div>
-            <div class="field" v-if="!editingId">
-              <label>Category</label>
-              <select v-model="form.category">
-                <option v-for="cat in CATEGORIES" :key="cat" :value="cat">
-                  {{ cat.charAt(0) + cat.slice(1).toLowerCase() }}
-                </option>
-              </select>
+
+            <div class="modal-grid">
+              <div class="field">
+                <label>Category</label>
+                <select v-model="form.categoryId" required>
+                  <option value="" disabled>Select category</option>
+                  <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Size Group</label>
+                <select v-model="form.sizeGroup">
+                  <option v-for="sg in SIZE_GROUPS" :key="sg.value" :value="sg.value">{{ sg.label }}</option>
+                </select>
+              </div>
             </div>
 
             <!-- First SKU — required on create -->
@@ -220,19 +238,21 @@ onMounted(fetchProducts)
               <div class="modal-grid">
                 <div class="field">
                   <label>SKU Code</label>
-                  <input v-model="skuForm.skuCode" type="text" placeholder="e.g. SHOE-001-BLK" required />
-                </div>
-                <div class="field">
-                  <label>SKU Name</label>
-                  <input v-model="skuForm.name" type="text" placeholder="SKU name" required />
-                </div>
-                <div class="field">
-                  <label>Size</label>
-                  <input v-model="skuForm.size" type="text" placeholder="e.g. 42, M, L" required />
+                  <input v-model="skuForm.skuCode" type="text" placeholder="e.g. COAT-001-BLK-M" required />
                 </div>
                 <div class="field">
                   <label>Color</label>
-                  <input v-model="skuForm.color" type="text" placeholder="e.g. Black" required />
+                  <select v-model="skuForm.colorId" required>
+                    <option value="" disabled>Select color</option>
+                    <option v-for="c in colors" :key="c.id" :value="c.id">{{ c.name }}</option>
+                  </select>
+                </div>
+                <div class="field" v-if="filteredSizes.length > 0">
+                  <label>Size</label>
+                  <select v-model="skuForm.sizeId">
+                    <option value="">None</option>
+                    <option v-for="s in filteredSizes" :key="s.id" :value="s.id">{{ s.name }}</option>
+                  </select>
                 </div>
                 <div class="field">
                   <label>Price (IDR)</label>
@@ -242,10 +262,6 @@ onMounted(fetchProducts)
                   <label>Initial Stock</label>
                   <input v-model.number="skuForm.quantity" type="number" min="1" required />
                 </div>
-              </div>
-              <div class="field">
-                <label>SKU Description</label>
-                <textarea v-model="skuForm.description" placeholder="SKU description" rows="2" required />
               </div>
               <label class="checkbox-label">
                 <input type="checkbox" v-model="skuForm.isActive" />

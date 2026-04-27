@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import {
   getProduct, createSku, restockSku,
-  uploadProductImage, deleteProductImage,
-  uploadSkuImage, deleteSkuImage,
-  type ProductDetail, type CreateSkuPayload,
+  getColors, getSizes, uploadColorImage, deleteColorImage,
+  type ProductDetail, type ColorRef, type SizeRef, type CreateSkuPayload, type ProductColorImage,
 } from '../../services/admin'
-import { type SkuInfo } from '../../services/products'
+import type { SkuInfo } from '../../services/products'
 
 const route = useRoute()
 const id = route.params.id as string
@@ -18,6 +17,9 @@ const skus = ref<SkuInfo[]>([])
 const loading = ref(false)
 const error = ref('')
 
+const colors = ref<ColorRef[]>([])
+const sizes = ref<SizeRef[]>([])
+
 const showSkuModal = ref(false)
 const showRestockModal = ref(false)
 const saving = ref(false)
@@ -25,23 +27,39 @@ const modalError = ref('')
 const restockTarget = ref<SkuInfo | null>(null)
 const restockQty = ref(1)
 
-const skuForm = ref<CreateSkuPayload>({
-  name: '', description: '', skuCode: '', size: '', color: '',
-  price: 0, isActive: true, product_id: id, quantity: 0,
+const skuForm = ref<Omit<CreateSkuPayload, 'product_id'>>({
+  skuCode: '', colorId: '', sizeId: undefined,
+  price: 0, compareAt: undefined, isActive: true, quantity: 0,
 })
 
-const productImageInput = ref<HTMLInputElement | null>(null)
-const productImageUploading = ref(false)
-const skuImageInputs = ref<Record<string, HTMLInputElement | null>>({})
-const skuImageUploading = ref<string | null>(null)
+const imageUploading = ref<string | null>(null)
+const imageInputs = ref<Record<string, HTMLInputElement | null>>({})
+
+function colorImages(colorId: string): ProductColorImage[] {
+  return product.value?.images?.filter(img => img.colorId === colorId) ?? []
+}
+
+const uniqueColorIds = computed(() => {
+  const seen = new Set<string>()
+  return skus.value.filter(s => { if (seen.has(s.colorId)) return false; seen.add(s.colorId); return true })
+})
+
+const filteredSizes = computed(() => {
+  if (!product.value?.sizeGroup) return []
+  return sizes.value.filter(s => s.sizeGroup === product.value!.sizeGroup)
+})
+
+function formatPrice(price: number) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(price)
+}
 
 async function fetchProduct() {
   loading.value = true
   error.value = ''
   try {
-    const productRes = await getProduct(id)
-    product.value = productRes.data
-    skus.value = productRes.data.skus ?? []
+    const res = await getProduct(id)
+    product.value = res.data
+    skus.value = res.data.skus ?? []
   } catch {
     error.value = 'Failed to load product.'
   } finally {
@@ -51,8 +69,8 @@ async function fetchProduct() {
 
 function openSkuModal() {
   skuForm.value = {
-    name: '', description: '', skuCode: '', size: '', color: '',
-    price: 0, isActive: true, product_id: id, quantity: 0,
+    skuCode: '', colorId: colors.value[0]?.id ?? '', sizeId: undefined,
+    price: 0, compareAt: undefined, isActive: true, quantity: 0,
   }
   modalError.value = ''
   showSkuModal.value = true
@@ -62,7 +80,7 @@ async function saveSku() {
   modalError.value = ''
   saving.value = true
   try {
-    await createSku(skuForm.value)
+    await createSku({ ...skuForm.value, sizeId: skuForm.value.sizeId || undefined, product_id: id })
     showSkuModal.value = false
     await fetchProduct()
   } catch (e) {
@@ -94,61 +112,41 @@ async function saveRestock() {
   }
 }
 
-async function onProductImageSelected(e: Event) {
+function triggerImageUpload(colorId: string) {
+  imageInputs.value[colorId]?.click()
+}
+
+async function onImageSelected(colorId: string, e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
-  productImageUploading.value = true
+  imageUploading.value = colorId
   try {
-    await uploadProductImage(id, file)
+    await uploadColorImage(id, colorId, file)
     await fetchProduct()
   } catch (err) {
     alert(err instanceof Error ? err.message : 'Upload failed.')
   } finally {
-    productImageUploading.value = false
+    imageUploading.value = null
     ;(e.target as HTMLInputElement).value = ''
   }
 }
 
-async function removeProductImage() {
-  if (!confirm('Remove product image?')) return
+async function removeImage(colorId: string, imageId: string) {
+  if (!confirm('Remove this image?')) return
   try {
-    await deleteProductImage(id)
+    await deleteColorImage(id, colorId, imageId)
     await fetchProduct()
   } catch (e) {
     alert(e instanceof Error ? e.message : 'Failed to remove image.')
   }
 }
 
-function triggerSkuImageUpload(skuId: string) {
-  skuImageInputs.value[skuId]?.click()
-}
-
-async function onSkuImageSelected(sku: SkuInfo, e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  skuImageUploading.value = sku.id
-  try {
-    await uploadSkuImage(sku.id, file)
-    await fetchProduct()
-  } catch (err) {
-    alert(err instanceof Error ? err.message : 'Upload failed.')
-  } finally {
-    skuImageUploading.value = null
-    ;(e.target as HTMLInputElement).value = ''
-  }
-}
-
-async function removeSkuImage(sku: SkuInfo) {
-  if (!confirm(`Remove image for SKU "${sku.skuCode}"?`)) return
-  try {
-    await deleteSkuImage(sku.id)
-    await fetchProduct()
-  } catch (e) {
-    alert(e instanceof Error ? e.message : 'Failed to remove image.')
-  }
-}
-
-onMounted(fetchProduct)
+onMounted(async () => {
+  const [colorRes, sizeRes] = await Promise.all([getColors(), getSizes()])
+  colors.value = colorRes.data ?? []
+  sizes.value = sizeRes.data ?? []
+  await fetchProduct()
+})
 </script>
 
 <template>
@@ -160,50 +158,60 @@ onMounted(fetchProduct)
       <div v-else-if="error" class="admin-state admin-state--error">{{ error }}</div>
 
       <template v-else-if="product">
-        <!-- Product info -->
         <div class="admin-page-header">
           <div>
             <h1 class="admin-page-title">{{ product.name }}</h1>
             <div style="display:flex; gap:8px; margin-top:4px;">
-              <span class="badge" :data-cat="product.category">{{ product.category }}</span>
+              <span class="badge">{{ product.category?.name }}</span>
+              <span v-if="product.sizeGroup" class="badge">{{ product.sizeGroup }}</span>
             </div>
-          </div>
-        </div>
-
-        <!-- Product image management -->
-        <div class="admin-product-image-section">
-          <div class="admin-product-image-wrap">
-            <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" class="admin-product-image" />
-            <div v-else class="admin-product-image admin-product-image--empty">No image</div>
-          </div>
-          <div class="admin-img-actions" style="flex-direction: row; margin-top: 8px;">
-            <input
-              ref="productImageInput"
-              type="file"
-              accept="image/*"
-              style="display:none"
-              @change="onProductImageSelected"
-            />
-            <button
-              class="btn-outline btn-sm"
-              :disabled="productImageUploading"
-              @click="productImageInput?.click()"
-            >
-              {{ productImageUploading ? 'Uploading…' : product.imageUrl ? 'Replace Image' : 'Upload Image' }}
-            </button>
-            <button
-              v-if="product.imageUrl"
-              class="btn-ghost btn-sm btn-ghost--danger"
-              @click="removeProductImage"
-            >
-              Remove Image
-            </button>
           </div>
         </div>
 
         <div class="info-card">
           <p class="info-label">Description</p>
           <p>{{ product.description ?? '—' }}</p>
+        </div>
+
+        <!-- Color images -->
+        <div style="margin-top: 24px;">
+          <h2 class="admin-section-title" style="margin-bottom:12px;">Color Images</h2>
+          <div v-if="uniqueColorIds.length === 0" style="color:var(--text);font-size:14px;">No SKUs yet — add a SKU first.</div>
+          <div v-for="sku in uniqueColorIds" :key="sku.colorId" style="margin-bottom:16px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span
+                style="width:14px;height:14px;border-radius:50%;border:1px solid var(--border);display:inline-block;"
+                :style="{ background: sku.color?.hex ?? '#ccc' }"
+              />
+              <strong style="font-size:14px;">{{ sku.color?.name }}</strong>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+              <div v-for="img in colorImages(sku.colorId)" :key="img.id" style="position:relative;">
+                <img :src="img.imageUrl" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border);" />
+                <button
+                  class="btn-ghost btn-xs btn-ghost--danger"
+                  style="position:absolute;top:2px;right:2px;padding:2px 5px;"
+                  @click="removeImage(sku.colorId, img.id)"
+                >×</button>
+              </div>
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  style="display:none"
+                  :ref="el => imageInputs[sku.colorId] = el as HTMLInputElement"
+                  @change="onImageSelected(sku.colorId, $event)"
+                />
+                <button
+                  class="btn-outline btn-sm"
+                  :disabled="imageUploading === sku.colorId"
+                  @click="triggerImageUpload(sku.colorId)"
+                >
+                  {{ imageUploading === sku.colorId ? 'Uploading…' : '+ Add Image' }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- SKUs -->
@@ -216,12 +224,11 @@ onMounted(fetchProduct)
           <table class="admin-table">
             <thead>
               <tr>
-                <th>Image</th>
                 <th>SKU Code</th>
-                <th>Name</th>
-                <th>Size</th>
                 <th>Color</th>
+                <th>Size</th>
                 <th>Price</th>
+                <th>Compare At</th>
                 <th>Stock</th>
                 <th>Active</th>
                 <th>Actions</th>
@@ -229,44 +236,22 @@ onMounted(fetchProduct)
             </thead>
             <tbody>
               <tr v-if="skus.length === 0">
-                <td colspan="9" style="text-align:center; color: var(--text);">No SKUs yet.</td>
+                <td colspan="8" style="text-align:center; color: var(--text);">No SKUs yet.</td>
               </tr>
               <tr v-for="sku in skus" :key="sku.id">
+                <td><code style="font-size:13px;">{{ sku.skuCode }}</code></td>
                 <td>
-                  <div class="admin-img-cell">
-                    <img v-if="sku.imageUrl" :src="sku.imageUrl" :alt="sku.name" class="admin-thumb" />
-                    <div v-else class="admin-thumb admin-thumb--empty">—</div>
-
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style="display:none"
-                      :ref="el => skuImageInputs[sku.id] = el as HTMLInputElement"
-                      @change="onSkuImageSelected(sku, $event)"
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <span
+                      style="width:12px;height:12px;border-radius:50%;border:1px solid var(--border);flex-shrink:0;"
+                      :style="{ background: sku.color?.hex }"
                     />
-                    <div class="admin-img-actions">
-                      <button
-                        class="btn-ghost btn-xs"
-                        :disabled="skuImageUploading === sku.id"
-                        @click="triggerSkuImageUpload(sku.id)"
-                      >
-                        {{ skuImageUploading === sku.id ? '…' : sku.imageUrl ? 'Replace' : 'Upload' }}
-                      </button>
-                      <button
-                        v-if="sku.imageUrl"
-                        class="btn-ghost btn-xs btn-ghost--danger"
-                        @click="removeSkuImage(sku)"
-                      >
-                        Remove
-                      </button>
-                    </div>
+                    {{ sku.color?.name }}
                   </div>
                 </td>
-                <td><code style="font-size:13px;">{{ sku.skuCode }}</code></td>
-                <td>{{ sku.name }}</td>
-                <td>{{ sku.size ?? '—' }}</td>
-                <td>{{ sku.color ?? '—' }}</td>
-                <td>{{ Number(sku.price).toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }) }}</td>
+                <td>{{ sku.size?.name ?? '—' }}</td>
+                <td>{{ formatPrice(Number(sku.price)) }}</td>
+                <td>{{ sku.compareAt ? formatPrice(Number(sku.compareAt)) : '—' }}</td>
                 <td>{{ sku.stock?.amount ?? '—' }}</td>
                 <td>
                   <span class="badge" :style="sku.isActive ? 'background:rgba(16,185,129,.15);color:#059669' : 'background:var(--code-bg);color:var(--text)'">
@@ -294,33 +279,34 @@ onMounted(fetchProduct)
             <div class="modal-grid">
               <div class="field">
                 <label>SKU Code</label>
-                <input v-model="skuForm.skuCode" type="text" placeholder="e.g. BAG-001-RED" required />
-              </div>
-              <div class="field">
-                <label>Name</label>
-                <input v-model="skuForm.name" type="text" placeholder="SKU name" required />
-              </div>
-              <div class="field">
-                <label>Size</label>
-                <input v-model="skuForm.size" type="text" placeholder="e.g. M, L, 42" required />
+                <input v-model="skuForm.skuCode" type="text" placeholder="e.g. COAT-001-BLK-M" required />
               </div>
               <div class="field">
                 <label>Color</label>
-                <input v-model="skuForm.color" type="text" placeholder="e.g. Red" required />
+                <select v-model="skuForm.colorId" required>
+                  <option value="" disabled>Select color</option>
+                  <option v-for="c in colors" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+              </div>
+              <div class="field" v-if="filteredSizes.length > 0">
+                <label>Size</label>
+                <select v-model="skuForm.sizeId">
+                  <option value="">None</option>
+                  <option v-for="s in filteredSizes" :key="s.id" :value="s.id">{{ s.name }}</option>
+                </select>
               </div>
               <div class="field">
                 <label>Price (IDR)</label>
-                <input v-model.number="skuForm.price" type="number" min="0" placeholder="0" required />
+                <input v-model.number="skuForm.price" type="number" min="0" required />
+              </div>
+              <div class="field">
+                <label>Compare At (IDR)</label>
+                <input v-model.number="skuForm.compareAt" type="number" min="0" placeholder="Optional" />
               </div>
               <div class="field">
                 <label>Initial Stock</label>
-                <input v-model.number="skuForm.quantity" type="number" min="1" placeholder="1" required />
+                <input v-model.number="skuForm.quantity" type="number" min="1" required />
               </div>
-            </div>
-
-            <div class="field">
-              <label>Description</label>
-              <textarea v-model="skuForm.description" placeholder="SKU description" rows="2" required />
             </div>
 
             <label class="checkbox-label">
@@ -343,7 +329,7 @@ onMounted(fetchProduct)
     <Teleport to="body">
       <div v-if="showRestockModal" class="modal-overlay" @click.self="showRestockModal = false">
         <div class="modal-box">
-          <h3 class="modal-title">Restock — {{ restockTarget?.name }}</h3>
+          <h3 class="modal-title">Restock — {{ restockTarget?.skuCode }}</h3>
           <p class="modal-sub">Current stock: <strong>{{ restockTarget?.stock?.amount ?? 0 }}</strong></p>
           <p v-if="modalError" class="auth-error">{{ modalError }}</p>
 

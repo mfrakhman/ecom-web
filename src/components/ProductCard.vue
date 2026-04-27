@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import type { Product } from '../services/products'
-import { getProductSkus, type SkuInfo } from '../services/products'
+import type { Product, SkuInfo, ColorRef } from '../services/products'
+import { getProductSkus } from '../services/products'
 
 const props = defineProps<{ product: Product }>()
 const router = useRouter()
@@ -11,26 +11,7 @@ const hovered = ref(false)
 const hasFetched = ref(false)
 const skus = ref<SkuInfo[]>([])
 const loadingSkus = ref(false)
-const selectedColor = ref<string | null>(null)
-
-const categoryGradient: Record<string, string> = {
-  BAGS:    'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
-  SHOES:   'linear-gradient(135deg, #f97316 0%, #f59e0b 100%)',
-  CLOTHES: 'linear-gradient(135deg, #aa3bff 0%, #ec4899 100%)',
-  PANTS:   'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
-}
-
-const COLORS: Record<string, string> = {
-  red: '#ef4444', blue: '#3b82f6', green: '#22c55e', black: '#1f2937',
-  white: '#e5e7eb', yellow: '#eab308', purple: '#a855f7', pink: '#ec4899',
-  orange: '#f97316', gray: '#9ca3af', grey: '#9ca3af', brown: '#a16207',
-  navy: '#1e3a8a', beige: '#d4a574', teal: '#0d9488', maroon: '#9f1239',
-  gold: '#d97706', silver: '#94a3b8', cream: '#fef3c7', olive: '#65a30d',
-}
-
-function colorToCSS(c: string) {
-  return COLORS[c.toLowerCase().trim()] ?? c.toLowerCase()
-}
+const selectedColor = ref<ColorRef | null>(null)
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat('id-ID', {
@@ -40,15 +21,18 @@ function formatPrice(price: number) {
 
 const activeSkus = computed(() => skus.value.filter(s => s.isActive))
 
-const uniqueColors = computed(() =>
-  [...new Set(activeSkus.value.map(s => s.color).filter((c): c is string => !!c))]
-)
+const uniqueColors = computed(() => {
+  const seen = new Set<string>()
+  return activeSkus.value
+    .filter(s => { if (seen.has(s.colorId)) return false; seen.add(s.colorId); return true })
+    .map(s => s.color)
+})
 
 const sizesForColor = computed(() =>
   selectedColor.value
     ? activeSkus.value
-        .filter(s => s.color === selectedColor.value)
-        .map(s => ({ size: s.size ?? '?', inStock: (s.stock?.amount ?? 0) > 0 }))
+        .filter(s => s.colorId === selectedColor.value!.id)
+        .map(s => ({ size: s.size?.name ?? '—', inStock: (s.stock?.amount ?? 0) > 0 }))
     : []
 )
 
@@ -59,10 +43,10 @@ const minPrice = computed(() => {
 
 const displayImageUrl = computed(() => {
   if (selectedColor.value) {
-    const sku = activeSkus.value.find(s => s.color === selectedColor.value && s.imageUrl)
-    if (sku?.imageUrl) return sku.imageUrl
+    const img = props.product.images?.find(i => i.colorId === selectedColor.value!.id)
+    if (img) return img.imageUrl
   }
-  return props.product.imageUrl ?? null
+  return props.product.images?.[0]?.imageUrl ?? null
 })
 
 async function onHover() {
@@ -82,10 +66,10 @@ async function onHover() {
 <template>
   <div class="product-card" @mouseenter="onHover" @mouseleave="hovered = false">
     <!-- Image -->
-    <div class="product-card-img" :style="displayImageUrl ? {} : { background: categoryGradient[product.category] }">
+    <div class="product-card-img" :style="displayImageUrl ? {} : { background: 'var(--border)' }">
       <img v-if="displayImageUrl" :src="displayImageUrl" :alt="product.name" class="product-card-img-photo" />
       <span v-else class="product-card-category">
-        {{ product.category.charAt(0) + product.category.slice(1).toLowerCase() }}
+        {{ product.category?.name ?? '—' }}
       </span>
     </div>
 
@@ -99,10 +83,9 @@ async function onHover() {
       <button class="btn-outline" @click="router.push(`/products/${product.id}`)">View Details</button>
     </div>
 
-    <!-- Hover drawer — slides up from bottom -->
+    <!-- Hover drawer -->
     <Transition name="sku-drawer">
       <div v-if="hovered" class="product-card-drawer">
-        <!-- Loading -->
         <div v-if="loadingSkus" class="sku-loading">
           <span v-for="i in 4" :key="i" class="sku-dot-skeleton" />
         </div>
@@ -115,12 +98,12 @@ async function onHover() {
             <div class="sku-colors">
               <button
                 v-for="color in uniqueColors"
-                :key="color"
+                :key="color.id"
                 class="color-dot"
-                :class="{ active: selectedColor === color }"
-                :style="{ background: colorToCSS(color) }"
-                :title="color"
-                @click.stop="selectedColor = selectedColor === color ? null : color"
+                :class="{ active: selectedColor?.id === color.id }"
+                :style="{ background: color.hex }"
+                :title="color.name"
+                @click.stop="selectedColor = selectedColor?.id === color.id ? null : color"
               />
             </div>
 

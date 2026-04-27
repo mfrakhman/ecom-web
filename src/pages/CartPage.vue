@@ -102,14 +102,24 @@ onMounted(async () => {
         <!-- Items -->
         <div class="cart-items">
           <div v-for="item in displayItems" :key="item.skuId" class="cart-item">
-            <div v-if="item.sku?.imageUrl" class="cart-item-img-wrap">
-              <img :src="item.sku.imageUrl" :alt="item.sku?.name" class="cart-item-img" />
+            <div class="cart-item-img-wrap">
+              <img
+                v-if="item.sku?.product?.images?.find(i => i.colorId === item.sku!.colorId)?.imageUrl"
+                :src="item.sku!.product!.images!.find(i => i.colorId === item.sku!.colorId)!.imageUrl"
+                :alt="item.sku?.product?.name"
+                class="cart-item-img"
+              />
+              <div
+                v-else
+                class="cart-item-img"
+                :style="{ background: item.sku?.color?.hex ?? 'var(--border)', borderRadius: '6px' }"
+              />
             </div>
             <div class="cart-item-info">
-              <p class="cart-item-product">{{ item.sku?.name ?? item.skuId }}</p>
+              <p class="cart-item-product">{{ item.sku?.product?.name ?? item.skuId }}</p>
               <p class="cart-item-sku">
-                <span v-if="item.sku?.color" class="cart-item-meta">{{ item.sku.color }}</span>
-                <span v-if="item.sku?.size" class="cart-item-meta">· {{ item.sku.size }}</span>
+                <span class="cart-item-meta">{{ item.sku?.skuCode }}</span>
+                <span v-if="item.sku?.size" class="cart-item-meta">· {{ item.sku.size.name }}</span>
               </p>
               <p class="cart-item-price">{{ item.sku ? formatPrice(Number(item.sku.price)) : '—' }}</p>
             </div>
@@ -133,7 +143,7 @@ onMounted(async () => {
           <h2 class="cart-summary-title">Order Summary</h2>
 
           <div class="cart-summary-row" v-for="item in displayItems" :key="item.skuId">
-            <span>{{ item.sku?.name ?? item.skuId }} × {{ item.quantity }}</span>
+            <span>{{ item.sku?.product?.name ?? item.skuId }} × {{ item.quantity }}</span>
             <span>{{ item.sku ? formatPrice(Number(item.sku.price) * item.quantity) : '—' }}</span>
           </div>
 

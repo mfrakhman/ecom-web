@@ -20,7 +20,7 @@ const activeCategory = computed(() => (route.query.category as string) || '')
 
 const filtered = computed(() =>
   activeCategory.value
-    ? allProducts.value.filter((p) => p.category === activeCategory.value)
+    ? allProducts.value.filter((p) => p.category?.slug === activeCategory.value)
     : allProducts.value
 )
 
@@ -58,7 +58,7 @@ function goPage(p: number) {
       <div class="banner-content">
         <p class="banner-label">New arrivals</p>
         <h2 class="banner-title">Shop the Latest Collection</h2>
-        <p class="banner-sub">Bags · Shoes · Clothes · Pants</p>
+        <p class="banner-sub">Women · Men · Outerwear · Knitwear · Bags</p>
       </div>
     </div>
 
