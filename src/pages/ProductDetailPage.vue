@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Navbar from '../components/Navbar.vue'
 import AppFooter from '../components/AppFooter.vue'
@@ -26,14 +26,20 @@ function formatPrice(price: number) {
 const activeSkus = computed(() => skus.value.filter(s => s.isActive))
 const inStock = computed(() => (selectedSku.value?.stock?.amount ?? 0) > 0)
 
-const displayImageUrl = computed(() => {
-  if (!product.value) return null
-  if (selectedSku.value) {
-    const img = product.value.images?.find(i => i.colorId === selectedSku.value!.colorId)
-    if (img) return img.imageUrl
-  }
-  return product.value.images?.[0]?.imageUrl ?? null
+const activeImageIndex = ref(0)
+
+const colorImages = computed(() => {
+  if (!product.value?.images) return []
+  const colorId = selectedSku.value?.colorId
+  const filtered = colorId
+    ? product.value.images.filter(i => i.colorId === colorId)
+    : product.value.images
+  return filtered.length ? filtered : product.value.images
 })
+
+const displayImageUrl = computed(() => colorImages.value[activeImageIndex.value]?.imageUrl ?? null)
+
+watch(() => selectedSku.value?.colorId, () => { activeImageIndex.value = 0 })
 
 const { addItem } = useCart()
 const addedToCart = ref(false)
@@ -88,20 +94,34 @@ onMounted(async () => {
       <template v-else-if="product">
         <div class="pd-layout">
 
-          <!-- Left: image -->
-          <div
-            class="pd-image"
-            :style="displayImageUrl ? {} : { background: 'var(--border)' }"
-          >
-            <img
-              v-if="displayImageUrl"
-              :src="displayImageUrl"
-              :alt="product.name"
-              class="pd-image-photo"
-            />
-            <span v-else class="pd-image-label">
-              {{ product.category?.name ?? '—' }}
-            </span>
+          <!-- Left: gallery -->
+          <div class="pd-gallery">
+            <div
+              class="pd-image"
+              :style="displayImageUrl ? {} : { background: 'var(--border)' }"
+            >
+              <img
+                v-if="displayImageUrl"
+                :src="displayImageUrl"
+                :alt="product.name"
+                class="pd-image-photo"
+              />
+              <span v-else class="pd-image-label">
+                {{ product.category?.name ?? '—' }}
+              </span>
+            </div>
+
+            <div v-if="colorImages.length > 1" class="pd-thumbs">
+              <button
+                v-for="(img, idx) in colorImages"
+                :key="img.id"
+                class="pd-thumb"
+                :class="{ 'pd-thumb--active': activeImageIndex === idx }"
+                @click="activeImageIndex = idx"
+              >
+                <img :src="img.imageUrl" :alt="`${product.name} ${idx + 1}`" />
+              </button>
+            </div>
           </div>
 
           <!-- Right: info -->
