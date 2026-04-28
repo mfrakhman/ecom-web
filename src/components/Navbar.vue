@@ -17,13 +17,22 @@ const isLoggedIn = computed(() => !!getToken())
 const categories = ref<CategoryRef[]>([])
 const topLevel = computed(() => categories.value.filter(c => !c.parentId))
 
+function flattenTree(nodes: any[]): CategoryRef[] {
+  const result: CategoryRef[] = []
+  for (const node of nodes) {
+    result.push({ id: node.id, parentId: node.parentId ?? null, name: node.name, slug: node.slug })
+    if (node.children?.length) result.push(...flattenTree(node.children))
+  }
+  return result
+}
+
 onMounted(async () => {
   if (isLoggedIn.value) fetchCart()
   try {
     const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
     const res = await safeFetch(`${BASE}/categories`)
     const json = await res.json()
-    categories.value = (json.data ?? json) as CategoryRef[]
+    categories.value = flattenTree(json.data ?? json)
   } catch {
     // non-critical
   }

@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar.vue'
 import AppFooter from '../components/AppFooter.vue'
 import ProductCard from '../components/ProductCard.vue'
 import { getProducts, type Product } from '../services/products'
+import { safeFetch } from '../services/http'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,15 +15,41 @@ const loading = ref(false)
 const error = ref('')
 const LIMIT = 6
 
+// Flat category list for descendant lookups
+interface FlatCategory { id: string; parentId: string | null; slug: string }
+const allCategories = ref<FlatCategory[]>([])
+
+function flattenTree(nodes: any[]): FlatCategory[] {
+  const result: FlatCategory[] = []
+  for (const node of nodes) {
+    result.push({ id: node.id, parentId: node.parentId ?? null, slug: node.slug })
+    if (node.children?.length) result.push(...flattenTree(node.children))
+  }
+  return result
+}
+
+function descendantSlugs(slug: string): Set<string> {
+  const root = allCategories.value.find(c => c.slug === slug)
+  if (!root) return new Set([slug])
+  const slugs = new Set<string>()
+  const collect = (id: string) => {
+    const cat = allCategories.value.find(c => c.id === id)
+    if (cat) slugs.add(cat.slug)
+    allCategories.value.filter(c => c.parentId === id).forEach(child => collect(child.id))
+  }
+  collect(root.id)
+  return slugs
+}
+
 const page = computed(() => Math.max(1, Number(route.query.page) || 1))
 const searchQuery = computed(() => (route.query.q as string) || '')
 const activeCategory = computed(() => (route.query.category as string) || '')
 
-const filtered = computed(() =>
-  activeCategory.value
-    ? allProducts.value.filter((p) => p.category?.slug === activeCategory.value)
-    : allProducts.value
-)
+const filtered = computed(() => {
+  if (!activeCategory.value) return allProducts.value
+  const slugs = descendantSlugs(activeCategory.value)
+  return allProducts.value.filter(p => p.category?.slug && slugs.has(p.category.slug))
+})
 
 const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / LIMIT)))
 const pageProducts = computed(() => {
@@ -42,7 +69,17 @@ async function fetchProducts() {
   }
 }
 
+async function fetchCategories() {
+  try {
+    const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
+    const res = await safeFetch(`${BASE}/categories`)
+    const json = await res.json()
+    allCategories.value = flattenTree(json.data ?? json)
+  } catch {}
+}
+
 watch(() => route.query.q, fetchProducts, { immediate: true })
+fetchCategories()
 
 function goPage(p: number) {
   router.push({ query: { ...route.query, page: p > 1 ? String(p) : undefined } })
