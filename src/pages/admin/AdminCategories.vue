@@ -5,7 +5,6 @@ import {
   getCategories, createCategory, updateCategory, deleteCategory,
   type CategoryNode,
 } from '../../services/admin'
-import type { CategoryRef } from '../../services/products'
 
 interface FlatCat { id: string; name: string; slug: string; parentId: string | null; displayOrder: number; level: number }
 
