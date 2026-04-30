@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Analytics } from '@vercel/analytics/vue'
 import { isServerDown, clearServerDown } from './composables/useServerError'
 import CartDrawer from './components/CartDrawer.vue'
 
@@ -9,6 +10,7 @@ function retry() {
 </script>
 
 <template>
+  <Analytics />
   <div v-if="isServerDown" class="server-error-overlay">
     <div class="server-error-box">
       <div class="server-error-icon">
