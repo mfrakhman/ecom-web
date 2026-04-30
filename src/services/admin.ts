@@ -91,9 +91,22 @@ export function deleteProduct(id: string) {
   return req<{ message: string }>('DELETE', `/products/${id}`)
 }
 
+export interface UpdateSkuPayload {
+  skuCode?: string
+  colorId?: string
+  sizeId?: string | null
+  price?: number
+  compareAt?: number | null
+  isActive?: boolean
+}
+
 // SKUs
 export function createSku(data: CreateSkuPayload) {
   return req<{ message: string; data: SkuInfo }>('POST', '/products/skus', data)
+}
+
+export function updateSku(id: string, data: UpdateSkuPayload) {
+  return req<{ message: string; data: SkuInfo }>('PATCH', `/products/skus/${id}`, data)
 }
 
 export function restockSku(id: string, quantity: number) {
@@ -114,7 +127,11 @@ export function deleteColorImage(productId: string, colorId: string, imageId: st
 }
 
 // Reference data
-export function getCategories(): Promise<{ message: string; data: CategoryRef[] }> {
+export interface CategoryNode extends CategoryRef {
+  children?: CategoryNode[]
+}
+
+export function getCategories(): Promise<{ message: string; data: CategoryNode[] }> {
   return req('GET', '/categories')
 }
 
@@ -125,4 +142,37 @@ export function getColors(): Promise<{ message: string; data: ColorRef[] }> {
 export function getSizes(sizeGroup?: string): Promise<{ message: string; data: SizeRef[] }> {
   const q = sizeGroup ? `?sizeGroup=${sizeGroup}` : ''
   return req('GET', `/sizes${q}`)
+}
+
+// Categories CRUD
+export function createCategory(data: { name: string; slug: string; parentId?: string; displayOrder?: number }) {
+  return req<{ message: string; data: CategoryRef }>('POST', '/categories', data)
+}
+export function updateCategory(id: string, data: { name?: string; slug?: string; parentId?: string; displayOrder?: number }) {
+  return req<{ message: string }>('PATCH', `/categories/${id}`, data)
+}
+export function deleteCategory(id: string) {
+  return req<{ message: string }>('DELETE', `/categories/${id}`)
+}
+
+// Colors CRUD
+export function createColor(data: { name: string; slug: string; hex: string; displayOrder?: number }) {
+  return req<{ message: string; data: ColorRef }>('POST', '/colors', data)
+}
+export function updateColor(id: string, data: { name?: string; slug?: string; hex?: string; displayOrder?: number }) {
+  return req<{ message: string }>('PATCH', `/colors/${id}`, data)
+}
+export function deleteColor(id: string) {
+  return req<{ message: string }>('DELETE', `/colors/${id}`)
+}
+
+// Sizes CRUD
+export function createSize(data: { sizeGroup: string; name: string; slug: string; sortOrder: number }) {
+  return req<{ message: string; data: SizeRef }>('POST', '/sizes', data)
+}
+export function updateSize(id: string, data: { sizeGroup?: string; name?: string; slug?: string; sortOrder?: number }) {
+  return req<{ message: string }>('PATCH', `/sizes/${id}`, data)
+}
+export function deleteSize(id: string) {
+  return req<{ message: string }>('DELETE', `/sizes/${id}`)
 }

@@ -3,9 +3,9 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import {
-  getProduct, createSku, restockSku,
+  getProduct, createSku, updateSku, restockSku,
   getColors, getSizes, uploadColorImage, deleteColorImage,
-  type ProductDetail, type ColorRef, type SizeRef, type CreateSkuPayload, type ProductColorImage,
+  type ProductDetail, type ColorRef, type SizeRef, type CreateSkuPayload, type UpdateSkuPayload, type ProductColorImage,
 } from '../../services/admin'
 import type { SkuInfo } from '../../services/products'
 
@@ -21,11 +21,17 @@ const colors = ref<ColorRef[]>([])
 const sizes = ref<SizeRef[]>([])
 
 const showSkuModal = ref(false)
+const showEditSkuModal = ref(false)
 const showRestockModal = ref(false)
 const saving = ref(false)
 const modalError = ref('')
+const editSkuTarget = ref<SkuInfo | null>(null)
 const restockTarget = ref<SkuInfo | null>(null)
 const restockQty = ref(1)
+
+const editSkuForm = ref<UpdateSkuPayload & { skuCode: string; colorId: string; price: number; isActive: boolean }>({
+  skuCode: '', colorId: '', sizeId: undefined, price: 0, compareAt: undefined, isActive: true,
+})
 
 const skuForm = ref<Omit<CreateSkuPayload, 'product_id'>>({
   skuCode: '', colorId: '', sizeId: undefined,
@@ -85,6 +91,39 @@ async function saveSku() {
     await fetchProduct()
   } catch (e) {
     modalError.value = e instanceof Error ? e.message : 'Failed to create SKU.'
+  } finally {
+    saving.value = false
+  }
+}
+
+function openEditSku(sku: SkuInfo) {
+  editSkuTarget.value = sku
+  editSkuForm.value = {
+    skuCode:   sku.skuCode,
+    colorId:   sku.colorId,
+    sizeId:    sku.sizeId ?? undefined,
+    price:     Number(sku.price),
+    compareAt: sku.compareAt ? Number(sku.compareAt) : undefined,
+    isActive:  sku.isActive,
+  }
+  modalError.value = ''
+  showEditSkuModal.value = true
+}
+
+async function saveEditSku() {
+  if (!editSkuTarget.value) return
+  modalError.value = ''
+  saving.value = true
+  try {
+    await updateSku(editSkuTarget.value.id, {
+      ...editSkuForm.value,
+      sizeId:    editSkuForm.value.sizeId    || null,
+      compareAt: editSkuForm.value.compareAt || null,
+    })
+    showEditSkuModal.value = false
+    await fetchProduct()
+  } catch (e) {
+    modalError.value = e instanceof Error ? e.message : 'Failed to update SKU.'
   } finally {
     saving.value = false
   }
@@ -259,7 +298,10 @@ onMounted(async () => {
                   </span>
                 </td>
                 <td>
-                  <button class="btn-ghost" @click="openRestock(sku)">Restock</button>
+                  <div class="action-btns">
+                    <button class="btn-ghost" @click="openEditSku(sku)">Edit</button>
+                    <button class="btn-ghost" @click="openRestock(sku)">Restock</button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -318,6 +360,63 @@ onMounted(async () => {
               <button type="button" class="btn-ghost" @click="showSkuModal = false">Cancel</button>
               <button type="submit" class="btn-primary btn-sm" :disabled="saving">
                 {{ saving ? 'Creating…' : 'Create SKU' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Edit SKU modal -->
+    <Teleport to="body">
+      <div v-if="showEditSkuModal" class="modal-overlay" @click.self="showEditSkuModal = false">
+        <div class="modal-box modal-box--wide">
+          <h3 class="modal-title">Edit SKU</h3>
+          <p v-if="modalError" class="auth-error">{{ modalError }}</p>
+
+          <form class="modal-form" @submit.prevent="saveEditSku">
+            <div class="modal-grid">
+              <div class="field">
+                <label>SKU Code</label>
+                <input v-model="editSkuForm.skuCode" type="text" required />
+              </div>
+              <div class="field">
+                <label>Color</label>
+                <select v-model="editSkuForm.colorId" required>
+                  <option v-for="c in colors" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+              </div>
+              <div class="field" v-if="filteredSizes.length > 0">
+                <label>Size</label>
+                <select v-model="editSkuForm.sizeId">
+                  <option value="">None</option>
+                  <option v-for="s in filteredSizes" :key="s.id" :value="s.id">{{ s.name }}</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Price (IDR)</label>
+                <input v-model.number="editSkuForm.price" type="number" min="0" required />
+              </div>
+              <div class="field">
+                <label>Compare At (IDR)</label>
+                <input v-model.number="editSkuForm.compareAt" type="number" min="0" placeholder="Optional" />
+              </div>
+            </div>
+
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="editSkuForm.isActive" />
+              <span>Active (visible to customers)</span>
+            </label>
+
+            <div style="background:var(--line-2); border-radius:10px; padding:12px 14px; font-size:13px; color:var(--ink-3);">
+              Current stock: <strong style="color:var(--ink);">{{ editSkuTarget?.stock?.amount ?? 0 }}</strong>
+              — use <em>Restock</em> to adjust quantity.
+            </div>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-ghost" @click="showEditSkuModal = false">Cancel</button>
+              <button type="submit" class="btn-primary btn-sm" :disabled="saving">
+                {{ saving ? 'Saving…' : 'Save Changes' }}
               </button>
             </div>
           </form>

@@ -14,6 +14,9 @@ const AdminDashboard = () => import('../pages/admin/AdminDashboard.vue')
 const AdminProducts = () => import('../pages/admin/AdminProducts.vue')
 const AdminProductDetail = () => import('../pages/admin/AdminProductDetail.vue')
 const AdminOrders = () => import('../pages/admin/AdminOrders.vue')
+const AdminCategories = () => import('../pages/admin/AdminCategories.vue')
+const AdminColors = () => import('../pages/admin/AdminColors.vue')
+const AdminSizes = () => import('../pages/admin/AdminSizes.vue')
 
 const AUTH_REDIRECT = ['/login', '/register']
 const OPEN_ROUTES = ['/', '/login', '/register']
@@ -34,6 +37,9 @@ const router = createRouter({
     { path: '/admin/products', component: AdminProducts },
     { path: '/admin/products/:id', component: AdminProductDetail },
     { path: '/admin/orders', component: AdminOrders },
+    { path: '/admin/categories', component: AdminCategories },
+    { path: '/admin/colors', component: AdminColors },
+    { path: '/admin/sizes', component: AdminSizes },
   ],
 })
 

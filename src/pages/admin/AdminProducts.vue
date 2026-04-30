@@ -22,10 +22,11 @@ const modalError = ref('')
 const editingId = ref<string | null>(null)
 
 const SIZE_GROUPS = [
-  { value: '', label: 'None (bags, accessories)' },
-  { value: 'apparel', label: 'Apparel (XS–XXL)' },
-  { value: 'footwear_uk', label: 'Footwear UK (5–12)' },
-  { value: 'waist', label: 'Waist (W28–W38)' },
+  { value: '',            label: 'None' },
+  { value: 'apparel',     label: 'Apparel (XS–XXL)' },
+  { value: 'pants',       label: 'Pants (Waist)' },
+  { value: 'shoes',       label: 'Shoes (EU)' },
+  { value: 'accessories', label: 'Accessories' },
 ]
 
 const form = ref({

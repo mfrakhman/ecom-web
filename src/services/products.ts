@@ -2,9 +2,9 @@ import { safeFetch } from './http'
 
 const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
 
-export interface ColorRef { id: string; name: string; slug: string; hex: string }
-export interface SizeRef  { id: string; name: string; slug: string; sizeGroup: string }
-export interface CategoryRef { id: string; name: string; slug: string; parentId: string | null }
+export interface ColorRef { id: string; name: string; slug: string; hex: string; displayOrder?: number }
+export interface SizeRef  { id: string; name: string; slug: string; sizeGroup: string; sortOrder?: number }
+export interface CategoryRef { id: string; name: string; slug: string; parentId: string | null; displayOrder?: number }
 export interface ProductColorImage { id: string; colorId: string; imageUrl: string }
 
 export interface SkuInfo {
