@@ -41,3 +41,15 @@ const status = (route.query.status as string) ?? 'PENDING'
 
   <AppFooter />
 </template>
+
+<style scoped>
+.confirm-container { max-width: 560px; margin: 0 auto; padding: 80px 24px; text-align: center; }
+.confirm-icon { width: 64px; height: 64px; border-radius: 50%; background: rgba(47,110,79,.12); color: var(--ok); display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
+.confirm-title { font-family: var(--serif); font-size: 26px; font-weight: 400; color: var(--ink); margin: 0 0 8px; }
+.confirm-sub { color: var(--ink-2); margin: 0 0 32px; }
+.confirm-card { border: 1px solid var(--line); border-radius: 14px; padding: 24px; text-align: left; margin-bottom: 32px; background: var(--surface); }
+.confirm-row { display: flex; justify-content: space-between; font-size: 14px; color: var(--ink-2); margin-bottom: 8px; }
+.confirm-row:last-child { margin-bottom: 0; }
+.confirm-row strong { color: var(--ink); }
+.confirm-status { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: rgba(47,110,79,.12); color: var(--ok); }
+</style>

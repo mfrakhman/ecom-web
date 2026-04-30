@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { isServerDown, clearServerDown } from './composables/useServerError'
+import CartDrawer from './components/CartDrawer.vue'
 
 function retry() {
   clearServerDown()
@@ -25,4 +26,5 @@ function retry() {
     </div>
   </div>
   <RouterView v-else />
+  <CartDrawer />
 </template>

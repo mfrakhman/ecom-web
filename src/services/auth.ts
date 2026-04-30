@@ -46,6 +46,26 @@ export function clearToken(): void {
   localStorage.removeItem(REFRESH_KEY)
 }
 
+export interface UserInfo {
+  sub: string
+  email: string
+  username?: string
+  name?: string
+  role: string
+  iat?: number
+  exp?: number
+}
+
+export function getUser(): UserInfo | null {
+  const token = getToken()
+  if (!token) return null
+  try {
+    return JSON.parse(atob(token.split('.')[1]))
+  } catch {
+    return null
+  }
+}
+
 export function getRole(): string | null {
   const token = getToken()
   if (!token) return null

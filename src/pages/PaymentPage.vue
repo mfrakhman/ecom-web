@@ -87,219 +87,245 @@ onUnmounted(stopAll)
 <template>
   <Navbar />
 
-  <main class="page-main">
-    <div class="payment-container">
+  <main class="page-main pay-page">
 
-      <div v-if="loading" class="products-state">
-        <div class="spinner" />
-        <p>Loading payment…</p>
+    <div v-if="loading" class="pay-loading">
+      <div class="spinner" />
+      <p>Loading payment…</p>
+    </div>
+
+    <template v-else-if="order">
+
+      <!-- Terminal: EXPIRED / FAILED -->
+      <div v-if="order.paymentStatus === 'EXPIRED' || order.paymentStatus === 'FAILED'" class="pay-terminal">
+        <div class="pay-terminal-icon pay-terminal-icon--fail">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+        </div>
+        <h1 class="pay-terminal-title">
+          {{ order.paymentStatus === 'EXPIRED' ? 'QR Expired' : 'Payment Failed' }}
+        </h1>
+        <p class="pay-terminal-sub">
+          {{ order.paymentStatus === 'EXPIRED'
+            ? 'The payment window has closed. Please place a new order to try again.'
+            : 'Your payment was not completed. Please place a new order to try again.' }}
+        </p>
+        <div class="pay-terminal-actions">
+          <button class="btn-primary" @click="router.push('/orders')">My Orders</button>
+          <button class="btn-outline" @click="router.push('/')">Continue Shopping</button>
+        </div>
       </div>
 
-      <template v-else-if="order">
-
-        <!-- EXPIRED / FAILED state -->
-        <div v-if="order.paymentStatus === 'EXPIRED' || order.paymentStatus === 'FAILED'" class="payment-terminal">
-          <div class="payment-terminal-icon payment-terminal-icon--fail">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-            </svg>
-          </div>
-          <h1 class="payment-terminal-title">
-            {{ order.paymentStatus === 'EXPIRED' ? 'QR Expired' : 'Payment Failed' }}
-          </h1>
-          <p class="payment-terminal-sub">
-            {{ order.paymentStatus === 'EXPIRED'
-              ? 'The payment window has closed. Please place a new order to try again.'
-              : 'Your payment was not completed. Please place a new order to try again.' }}
-          </p>
-          <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:24px;">
-            <button class="btn-primary" @click="router.push('/orders')">My Orders</button>
-            <button class="btn-ghost" @click="router.push('/')">Continue Shopping</button>
-          </div>
+      <!-- Awaiting payment -->
+      <div v-else class="pay-card">
+        <h1 class="pay-title">Scan to Pay</h1>
+        <p class="pay-amount">{{ formatPrice(total) }}</p>
+        <div class="pay-order-row">
+          Order <code class="pay-order-code">{{ orderId.slice(0, 8) }}…</code>
         </div>
 
-        <!-- AWAITING state -->
-        <div v-else class="payment-card">
-          <h1 class="payment-title">Scan to Pay</h1>
-          <p class="payment-amount">{{ formatPrice(total) }}</p>
-          <p class="payment-order-id">Order <code>{{ orderId.slice(0, 8) }}…</code></p>
-
-          <div class="payment-qr-wrap">
-            <img v-if="qrDataUrl" :src="qrDataUrl" alt="QRIS Payment QR Code" class="payment-qr" />
-            <div v-else class="payment-qr-placeholder">
-              <div class="spinner" />
-              <p class="payment-qr-pending">Generating QR…</p>
-            </div>
+        <!-- QR code -->
+        <div class="pay-qr-wrap">
+          <img v-if="qrDataUrl" :src="qrDataUrl" alt="QRIS Payment QR Code" class="pay-qr-img" />
+          <div v-else class="pay-qr-placeholder">
+            <div class="spinner" />
+            <p>Generating QR…</p>
           </div>
-
-          <div v-if="secondsLeft > 0" class="payment-countdown">
-            QR valid for <span class="payment-countdown-time">{{ countdown }}</span>
-          </div>
-          <div v-else-if="order.qrExpiresAt" class="payment-countdown payment-countdown--expired">
-            QR expired
-          </div>
-
-          <p class="payment-hint">
-            Open your mobile banking or e-wallet app and scan the QR code above.
-          </p>
-
-          <div class="payment-polling-indicator">
-            <span class="payment-dot" /> Waiting for payment confirmation…
-          </div>
+          <!-- Brand overlay -->
+          <div v-if="qrDataUrl" class="pay-qr-logo">R</div>
         </div>
-      </template>
 
-      <div v-else-if="error" class="products-state" style="color:var(--accent);">{{ error }}</div>
+        <!-- Countdown -->
+        <p v-if="secondsLeft > 0" class="pay-timer">
+          QR valid for <b>{{ countdown }}</b>
+        </p>
+        <p v-else-if="order.qrExpiresAt" class="pay-timer pay-timer--expired">
+          QR expired
+        </p>
 
-    </div>
+        <p class="pay-instr">
+          Open your mobile banking or e-wallet app and scan the QR code above.
+        </p>
+
+        <!-- Pulse status indicator -->
+        <div class="pay-status">
+          <span class="pay-pulse" />
+          Waiting for payment confirmation…
+        </div>
+
+        <!-- Accepted payment methods -->
+        <div class="pay-methods">
+          <span>QRIS</span>
+          <span>GOPAY</span>
+          <span>OVO</span>
+          <span>DANA</span>
+          <span>SHOPEEPAY</span>
+          <span>BCA</span>
+          <span>MANDIRI</span>
+          <span>BNI</span>
+        </div>
+
+        <!-- Links -->
+        <div class="pay-links">
+          <button class="pay-link" @click="router.push('/orders')">I've paid</button>
+          <span class="pay-links-dot">·</span>
+          <button class="pay-link" @click="router.push('/')">Cancel order</button>
+        </div>
+      </div>
+
+    </template>
+
+    <div v-else-if="error" class="pay-loading" style="color:var(--warn);">{{ error }}</div>
+
   </main>
 
   <AppFooter />
 </template>
 
 <style scoped>
-.payment-container {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 48px 24px 64px;
+.pay-page {
+  display: flex; align-items: center; justify-content: center;
+  padding: 48px 24px 72px; min-height: calc(100vh - 64px);
 }
 
-.payment-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 32px 24px;
+.pay-loading {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 14px; color: var(--ink-3); font-size: 14px;
+}
+
+/* ── Active payment card ── */
+.pay-card {
+  width: 100%; max-width: 440px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 20px; padding: 36px 32px 28px;
+  box-shadow: 0 30px 60px -20px rgba(22,20,15,.12);
   text-align: center;
 }
 
-.payment-title {
-  font-size: 1.4rem;
-  font-weight: 700;
-  margin: 0 0 8px;
-  color: var(--text-strong);
+.pay-title {
+  font-family: var(--serif); font-size: 22px; font-weight: 400; color: var(--ink);
+  margin: 0 0 8px; letter-spacing: -.3px;
 }
 
-.payment-amount {
-  font-size: 2rem;
-  font-weight: 800;
-  color: var(--text-strong);
-  margin: 0 0 4px;
+.pay-amount {
+  font-family: var(--serif); font-size: 38px; font-weight: 300; color: var(--ink);
+  margin: 0 0 10px; letter-spacing: -1px; font-variant-numeric: tabular-nums;
 }
 
-.payment-order-id {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin: 0 0 24px;
+.pay-order-row {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--ink-3); margin-bottom: 26px;
+}
+.pay-order-code {
+  font-family: var(--mono); font-size: 11px;
+  background: var(--line-2); padding: 2px 8px; border-radius: 4px;
+  color: var(--ink); border: 1px solid var(--line);
 }
 
-.payment-qr-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 288px;
-  margin-bottom: 16px;
+/* QR */
+.pay-qr-wrap {
+  position: relative;
+  width: 224px; height: 224px; margin: 0 auto 18px;
+  background: white; border-radius: 14px; padding: 14px;
+  box-shadow: 0 0 0 1px var(--line), 0 12px 32px -10px rgba(22,20,15,.12);
+}
+.pay-qr-img {
+  width: 100%; height: 100%; display: block; border-radius: 4px;
+}
+.pay-qr-placeholder {
+  width: 100%; height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  color: var(--ink-3); font-size: 12px;
+}
+.pay-qr-logo {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--ink); color: #FAF8F4;
+  font-family: var(--serif); font-size: 18px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 4px white;
 }
 
-.payment-qr {
-  width: 280px;
-  height: 280px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+/* Timer */
+.pay-timer {
+  font-size: 13px; color: var(--ink-3); margin: 0 0 8px;
 }
-
-.payment-qr-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  color: var(--text-muted);
-}
-
-.payment-qr-pending {
-  font-size: 0.9rem;
-  margin: 0;
-}
-
-.payment-countdown {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  margin-bottom: 12px;
-}
-
-.payment-countdown-time {
-  font-weight: 700;
-  color: var(--text-strong);
+.pay-timer b {
+  font-family: var(--mono); font-weight: 700; color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
+.pay-timer--expired { color: var(--warn); }
 
-.payment-countdown--expired {
-  color: var(--accent);
+.pay-instr {
+  font-size: 13px; color: var(--ink-3); margin: 0 auto 20px;
+  max-width: 300px; line-height: 1.55;
 }
 
-.payment-hint {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin: 0 0 20px;
-  line-height: 1.5;
+/* Pulse status */
+.pay-status {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 8px 16px; border-radius: 999px;
+  background: var(--line-2); border: 1px solid var(--line);
+  font-size: 12px; color: var(--ink-2); margin-bottom: 22px;
+}
+.pay-pulse {
+  position: relative;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ok); flex-shrink: 0;
+}
+.pay-pulse::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: var(--ok); animation: pay-ring 1.6s ease-out infinite;
+}
+@keyframes pay-ring {
+  0% { transform: scale(1); opacity: .6; }
+  100% { transform: scale(2.8); opacity: 0; }
 }
 
-.payment-polling-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 6px 14px;
+/* Payment methods */
+.pay-methods {
+  display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;
+  padding-top: 20px; border-top: 1px solid var(--line); margin-bottom: 16px;
+}
+.pay-methods span {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  padding: 4px 8px; border-radius: 5px;
+  background: var(--line-2); color: var(--ink-3); border: 1px solid var(--line);
 }
 
-.payment-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22c55e;
-  animation: pulse 1.6s ease-in-out infinite;
-  flex-shrink: 0;
+/* Bottom links */
+.pay-links {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  font-size: 13px;
 }
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+.pay-link {
+  background: none; border: none; cursor: pointer;
+  font-size: 13px; font-family: var(--sans);
+  color: var(--gold); font-weight: 600; padding: 0;
+  transition: color .14s;
 }
+.pay-link:hover { color: var(--ink); }
+.pay-links-dot { color: var(--ink-3); }
 
-.payment-terminal {
-  text-align: center;
-  padding: 48px 16px;
+/* ── Terminal states ── */
+.pay-terminal {
+  text-align: center; max-width: 380px; padding: 24px 0;
 }
-
-.payment-terminal-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.pay-terminal-icon {
+  width: 64px; height: 64px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
   margin: 0 auto 20px;
 }
-
-.payment-terminal-icon--fail {
-  background: #fee2e2;
-  color: #dc2626;
+.pay-terminal-icon--fail { background: rgba(180,61,61,.1); color: var(--warn); }
+.pay-terminal-title {
+  font-family: var(--serif); font-size: 24px; font-weight: 400; color: var(--ink);
+  margin: 0 0 10px; letter-spacing: -.3px;
 }
-
-.payment-terminal-title {
-  font-size: 1.4rem;
-  font-weight: 700;
-  margin: 0 0 8px;
-  color: var(--text-strong);
+.pay-terminal-sub {
+  font-size: 14px; color: var(--ink-3); margin: 0 auto 28px; max-width: 300px; line-height: 1.6;
 }
-
-.payment-terminal-sub {
-  color: var(--text-muted);
-  max-width: 320px;
-  margin: 0 auto;
-  line-height: 1.6;
-}
+.pay-terminal-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 </style>

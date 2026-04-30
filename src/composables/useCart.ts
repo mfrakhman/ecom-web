@@ -4,6 +4,10 @@ import { getCart, addToCart, updateCartItem, removeFromCart, clearCart, checkout
 const cart = ref<Cart | null>(null)
 const loading = ref(false)
 
+export const drawerOpen = ref(false)
+export function openCartDrawer() { drawerOpen.value = true }
+export function closeCartDrawer() { drawerOpen.value = false }
+
 export function useCart() {
   const count = computed(() =>
     cart.value?.items.reduce((sum, i) => sum + i.quantity, 0) ?? 0

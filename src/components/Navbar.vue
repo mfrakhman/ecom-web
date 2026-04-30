@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { clearToken, getToken } from '../services/auth'
-import { useCart } from '../composables/useCart'
+import { useCart, openCartDrawer } from '../composables/useCart'
 import { safeFetch } from '../services/http'
 import type { CategoryRef } from '../services/products'
 
@@ -113,6 +113,7 @@ function logout() {
           <div v-if="showUser" class="dropdown-menu dropdown-menu--right">
             <template v-if="isLoggedIn">
               <span class="dropdown-label">Account</span>
+              <RouterLink to="/account" class="dropdown-item" @click="showUser = false">Profile</RouterLink>
               <RouterLink to="/orders" class="dropdown-item" @click="showUser = false">My Orders</RouterLink>
               <button class="dropdown-item dropdown-item--danger" @click="logout">Sign Out</button>
             </template>
@@ -123,12 +124,83 @@ function logout() {
           </div>
         </div>
 
-        <RouterLink to="/cart" class="nav-icon-btn nav-cart-btn" aria-label="Cart">
+        <button class="nav-icon-btn nav-cart-btn" aria-label="Cart" @click="openCartDrawer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
           <span v-if="count > 0" class="nav-cart-badge">{{ count > 99 ? '99+' : count }}</span>
-        </RouterLink>
+        </button>
       </div>
 
     </div>
   </header>
 </template>
+
+<style scoped>
+.navbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(250,248,244,.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.navbar-inner {
+  max-width: 1280px; margin: 0 auto; padding: 0 24px;
+  height: 64px; display: flex; align-items: center; gap: 24px;
+}
+.navbar-left  { display: flex; align-items: center; gap: 24px; flex-shrink: 0; }
+.navbar-right { display: flex; align-items: center; gap: 4px;  flex-shrink: 0; }
+.nav-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+.nav-logo-icon {
+  width: 30px; height: 30px; background: var(--ink); color: #FAF8F4;
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; font-family: var(--serif);
+}
+.nav-logo-text { font-family: var(--serif); font-size: 17px; font-weight: 600; color: var(--ink); letter-spacing: -.2px; }
+.nav-links { display: flex; align-items: center; gap: 4px; }
+.nav-link {
+  padding: 6px 12px; font-size: 14px; font-weight: 500; color: var(--ink-2);
+  text-decoration: none; border-radius: 8px; border: none; background: none;
+  cursor: pointer; font-family: var(--sans); transition: color .15s, background .15s;
+}
+.nav-link:hover, .nav-link.router-link-active { color: var(--ink); background: var(--line-2); }
+.nav-dropdown-btn { display: flex; align-items: center; gap: 4px; }
+.nav-dropdown-wrap { position: relative; }
+.nav-backdrop { position: fixed; inset: 0; z-index: 10; }
+.dropdown-menu {
+  position: absolute; top: calc(100% + 8px); left: 0;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 6px; min-width: 180px;
+  box-shadow: var(--shadow-md); z-index: 20;
+}
+.dropdown-menu--right { left: auto; right: 0; }
+.dropdown-item {
+  display: block; width: 100%; text-align: left; padding: 9px 12px;
+  font-size: 14px; font-weight: 500; color: var(--ink-2);
+  background: none; border: none; border-radius: 8px; cursor: pointer;
+  font-family: var(--sans); text-decoration: none; transition: background .12s, color .12s;
+}
+.dropdown-item:hover { background: var(--line-2); color: var(--ink); }
+.dropdown-item--danger { color: var(--warn); }
+.dropdown-item--danger:hover { background: rgba(180,61,61,.08); color: var(--warn); }
+.dropdown-label { display: block; padding: 6px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--ink-3); }
+.nav-search {
+  flex: 1; display: flex; align-items: center; gap: 8px;
+  padding: 0 14px; height: 38px; background: var(--line-2);
+  border: 1.5px solid transparent; border-radius: 999px;
+  transition: border-color .18s, background .18s; color: var(--ink-3);
+}
+.nav-search:focus-within { border-color: var(--gold); background: var(--surface); }
+.nav-search input { flex: 1; background: none; border: none; outline: none; font-size: 14px; font-family: var(--sans); color: var(--ink); }
+.nav-search input::placeholder { color: var(--ink-3); }
+.nav-icon-btn {
+  position: relative; width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; border: none; background: none;
+  color: var(--ink-2); cursor: pointer; transition: background .15s, color .15s;
+}
+.nav-icon-btn:hover { background: var(--line-2); color: var(--ink); }
+.nav-cart-badge {
+  position: absolute; top: 3px; right: 3px; min-width: 17px; height: 17px;
+  padding: 0 4px; border-radius: 999px; background: var(--ink); color: #FAF8F4;
+  font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+</style>

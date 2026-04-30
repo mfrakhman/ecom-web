@@ -54,3 +54,22 @@ function logout() {
     </main>
   </div>
 </template>
+
+<style scoped>
+.admin-wrapper { display: flex; min-height: 100svh; }
+.admin-sidebar { width: 220px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; position: sticky; top: 0; height: 100svh; overflow-y: auto; }
+.sidebar-top { flex: 1; padding: 20px 12px 12px; display: flex; flex-direction: column; gap: 4px; }
+.sidebar-brand { display: flex; align-items: center; gap: 8px; text-decoration: none; padding: 6px 8px; margin-bottom: 12px; }
+.nav-logo-icon { width: 28px; height: 28px; background: var(--ink); color: #FAF8F4; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; font-family: var(--serif); flex-shrink: 0; }
+.sidebar-brand span:last-child { font-weight: 700; font-size: 15px; color: var(--ink); }
+.sidebar-section-label { font-size: 11px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--ink-3); padding: 4px 8px 8px; }
+.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.sidebar-link { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--ink-2); text-decoration: none; transition: background .15s, color .15s; border: none; background: none; cursor: pointer; font-family: var(--sans); width: 100%; text-align: left; }
+.sidebar-link:hover { background: var(--line-2); color: var(--ink); }
+.sidebar-link.router-link-active, .sidebar-link.router-link-exact-active { background: var(--gold-bg); color: var(--gold); }
+.sidebar-link--muted { color: var(--ink-3); opacity: .75; }
+.sidebar-bottom { padding: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
+.sidebar-logout { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--warn); border: none; background: none; cursor: pointer; font-family: var(--sans); width: 100%; text-align: left; transition: background .15s; }
+.sidebar-logout:hover { background: rgba(180,61,61,.08); }
+.admin-main { flex: 1; background: var(--line-2); min-height: 100svh; overflow-y: auto; }
+</style>

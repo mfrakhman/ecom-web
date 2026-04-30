@@ -103,3 +103,27 @@ onMounted(async () => {
 
   <AppFooter />
 </template>
+
+<style scoped>
+.orders-container { max-width: 760px; margin: 0 auto; padding: 48px 24px; }
+.orders-title { font-family: var(--serif); font-size: 26px; font-weight: 400; color: var(--ink); margin: 0 0 32px; }
+.orders-list { display: flex; flex-direction: column; gap: 16px; }
+.products-state { padding: 80px 24px; text-align: center; color: var(--ink-3); display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.order-card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); }
+.order-card-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--line-2); }
+.order-id { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 2px; }
+.order-date { font-size: 13px; color: var(--ink-3); margin: 0; }
+.order-items { padding: 12px 20px; display: flex; flex-direction: column; gap: 8px; }
+.order-item-row { display: flex; align-items: center; gap: 16px; font-size: 14px; color: var(--ink-2); }
+.order-item-img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); display: block; flex-shrink: 0; }
+.order-item-detail { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.order-item-name { font-weight: 500; color: var(--ink); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.order-item-meta { font-size: 12px; color: var(--ink-3); }
+.order-item-qty { font-size: 14px; color: var(--ink-2); white-space: nowrap; }
+.order-item-sub { margin-left: auto; font-weight: 600; color: var(--ink); }
+.order-card-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid var(--line); font-size: 15px; font-weight: 600; color: var(--ink); }
+.order-status { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.order-status[data-status="PENDING"]   { background: rgba(184,153,104,.15); color: #9a7d44; }
+.order-status[data-status="COMPLETED"] { background: rgba(47,110,79,.12);   color: var(--ok); }
+.order-status[data-status="FAILED"]    { background: rgba(180,61,61,.12);   color: var(--warn); }
+</style>

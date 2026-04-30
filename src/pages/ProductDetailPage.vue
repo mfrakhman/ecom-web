@@ -185,3 +185,38 @@ onMounted(async () => {
 
   <AppFooter />
 </template>
+
+<style scoped>
+.pd-container { max-width: 1100px; margin: 0 auto; padding: 40px 24px 60px; }
+.pd-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: start; }
+@media (max-width: 768px) { .pd-layout { grid-template-columns: 1fr; gap: 28px; } }
+.pd-gallery { position: sticky; top: 80px; display: flex; flex-direction: column; gap: 12px; }
+.pd-image { border-radius: 20px; aspect-ratio: 4/3; background: var(--line-2); display: flex; align-items: flex-end; padding: 20px; overflow: hidden; }
+.pd-image-photo { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; }
+.pd-thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+.pd-thumb { width: 64px; height: 64px; border-radius: 10px; overflow: hidden; border: 2px solid transparent; padding: 0; cursor: pointer; background: var(--line); transition: border-color .15s; flex-shrink: 0; }
+.pd-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pd-thumb--active { border-color: var(--gold); }
+.pd-image-label { background: rgba(250,248,244,.85); backdrop-filter: blur(6px); color: var(--ink-2); font-size: 13px; font-weight: 600; letter-spacing: .5px; padding: 4px 14px; border-radius: 20px; }
+.pd-info { display: flex; flex-direction: column; gap: 16px; }
+.pd-name { font-family: var(--serif); font-size: 30px; font-weight: 400; color: var(--ink); margin: 0; letter-spacing: -.5px; line-height: 1.2; }
+.pd-desc { font-size: 15px; color: var(--ink-2); margin: 0; line-height: 1.7; }
+.pd-section-label { font-size: 12px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+.pd-sku-list { display: flex; gap: 10px; flex-wrap: wrap; }
+.pd-sku-thumb { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); cursor: pointer; transition: border-color .15s, box-shadow .15s; min-width: 72px; font-family: var(--sans); }
+.pd-sku-thumb:hover { border-color: var(--gold); }
+.pd-sku-thumb.selected { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-bg); }
+.pd-sku-thumb.oos { opacity: .45; cursor: not-allowed; }
+.pd-sku-thumb-color { width: 36px; height: 36px; border-radius: 8px; box-shadow: 0 0 0 1px rgba(22,20,15,.10); }
+.pd-sku-thumb-size { font-size: 13px; font-weight: 600; color: var(--ink); }
+.pd-sku-thumb-code { font-size: 10px; color: var(--ink-3); font-family: var(--mono); }
+.pd-sku-detail { display: flex; flex-direction: column; gap: 10px; padding: 18px; background: var(--line-2); border: 1px solid var(--line); border-radius: 14px; }
+.pd-price { font-family: var(--serif); font-size: 28px; font-weight: 400; color: var(--ink); letter-spacing: -.5px; }
+.pd-stock { display: flex; align-items: center; gap: 7px; font-size: 14px; color: var(--ok); font-weight: 500; }
+.pd-stock--oos { color: var(--warn); }
+.pd-stock-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex-shrink: 0; }
+.pd-stock-dot--oos { background: var(--warn); }
+.pd-no-variants { font-size: 14px; color: var(--ink-3); margin: 0; }
+.products-state { padding: 80px 24px; text-align: center; color: var(--ink-3); display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.state-error { color: var(--warn); }
+</style>
