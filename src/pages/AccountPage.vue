@@ -3,21 +3,58 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Navbar from '../components/Navbar.vue'
 import AppFooter from '../components/AppFooter.vue'
-import { getUser, clearToken } from '../services/auth'
+import { getUser, clearToken, getMe, updateMe, uploadPhoto, deletePhoto, type Profile } from '../services/auth'
 import { useCart } from '../composables/useCart'
 import { getMyOrders, type Order } from '../services/orders'
 
 const router = useRouter()
 const { reset } = useCart()
 
-const section = ref<'profile' | 'orders' | 'security'>('profile')
+const section = ref<'profile' | 'account' | 'orders' | 'security'>('profile')
 
-const user = getUser()
-const orders = ref<Order[]>([])
-const ordersLoading = ref(true)
+const jwtUser = getUser()
+const profile  = ref<Profile | null>(null)
+const orders   = ref<Order[]>([])
+const ordersLoading  = ref(true)
+const profileLoading = ref(true)
+const saving         = ref(false)
+const saveError      = ref('')
+const photoUploading = ref(false)
+const photoError     = ref('')
+const photoInput     = ref<HTMLInputElement | null>(null)
+
+const editForm = ref({
+  firstName: '', lastName: '', dob: '', gender: '' as '' | 'MALE' | 'FEMALE', phone: '',
+  address: { street: '', district: '', subdistrict: '', city: '', province: '', postalCode: '', country: '' },
+})
+
+function syncForm(p: Profile) {
+  editForm.value = {
+    firstName: p.firstName ?? '',
+    lastName:  p.lastName  ?? '',
+    dob:       p.dob       ?? '',
+    gender:    p.gender    ?? '',
+    phone:     p.phone     ?? '',
+    address: {
+      street:      p.address?.street      ?? '',
+      district:    p.address?.district    ?? '',
+      subdistrict: p.address?.subdistrict ?? '',
+      city:        p.address?.city        ?? '',
+      province:    p.address?.province    ?? '',
+      postalCode:  p.address?.postalCode  ?? '',
+      country:     p.address?.country     ?? '',
+    },
+  }
+}
+
+const displayName = computed(() => {
+  if (profile.value?.firstName || profile.value?.lastName)
+    return [profile.value.firstName, profile.value.lastName].filter(Boolean).join(' ')
+  return profile.value?.username ?? jwtUser?.email?.split('@')[0] ?? 'User'
+})
 
 const initials = computed(() => {
-  const name = user?.username ?? user?.email ?? ''
+  const name = displayName.value
   return name
     .split(/[\s@._-]+/)
     .slice(0, 2)
@@ -26,25 +63,21 @@ const initials = computed(() => {
     .slice(0, 2) || 'U'
 })
 
-const displayName = computed(() => user?.username ?? user?.email?.split('@')[0] ?? 'User')
 const memberSince = computed(() => {
-  if (!user?.iat) return null
-  return new Date(user.iat * 1000).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  if (!jwtUser?.iat) return null
+  return new Date(jwtUser.iat * 1000).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 })
 
 const stats = computed(() => {
   const placed = orders.value.filter(o => o.status !== 'CART')
-  const spent = placed.reduce((s, o) => s + o.items.reduce((si, i) => si + Number(i.price) * i.quantity, 0), 0)
+  const spent  = placed.reduce((s, o) => s + o.items.reduce((si, i) => si + Number(i.price) * i.quantity, 0), 0)
   const paidCount = placed.filter(o => o.paymentStatus === 'PAID').length
   return { orders: placed.length, spent, paid: paidCount }
 })
 
 function formatPrice(price: number) {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
-  }).format(price)
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(price)
 }
-
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 }
@@ -55,14 +88,56 @@ function logout() {
   router.push('/login')
 }
 
-onMounted(async () => {
+async function saveProfile() {
+  saving.value = true
+  saveError.value = ''
   try {
-    orders.value = await getMyOrders()
-  } catch {
-    // not critical
+    const payload: any = { ...editForm.value }
+    if (!payload.gender) delete payload.gender
+    if (!payload.dob) delete payload.dob
+    if (!payload.phone) delete payload.phone
+    const hasAddress = Object.values(payload.address).some(Boolean)
+    if (!hasAddress) delete payload.address
+    profile.value = await updateMe(payload)
+  } catch (e: any) {
+    saveError.value = e.message
   } finally {
-    ordersLoading.value = false
+    saving.value = false
   }
+}
+
+async function handlePhotoChange(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  photoError.value = ''
+  photoUploading.value = true
+  try {
+    profile.value = await uploadPhoto(file)
+  } catch (err: any) {
+    photoError.value = err.message
+  } finally {
+    photoUploading.value = false
+    if (photoInput.value) photoInput.value.value = ''
+  }
+}
+
+async function handleDeletePhoto() {
+  photoError.value = ''
+  photoUploading.value = true
+  try {
+    profile.value = await deletePhoto()
+  } catch (err: any) {
+    photoError.value = err.message
+  } finally {
+    photoUploading.value = false
+  }
+}
+
+onMounted(async () => {
+  await Promise.allSettled([
+    getMe().then(p => { profile.value = p; syncForm(p) }).finally(() => { profileLoading.value = false }),
+    getMyOrders().then(o => { orders.value = o }).finally(() => { ordersLoading.value = false }),
+  ])
 })
 </script>
 
@@ -75,34 +150,28 @@ onMounted(async () => {
       <!-- Sidebar -->
       <aside class="acct-side">
         <div class="acct-side-user">
-          <div class="acct-avatar">{{ initials }}</div>
+          <div class="acct-avatar">
+            <img v-if="profile?.profilePhotoUrl" :src="profile.profilePhotoUrl" alt="avatar" />
+            <span v-else>{{ initials }}</span>
+          </div>
           <div class="acct-side-user-info">
             <p class="acct-side-name">{{ displayName }}</p>
-            <span class="acct-side-email">{{ user?.email }}</span>
+            <span class="acct-side-email">{{ jwtUser?.email }}</span>
           </div>
         </div>
 
         <nav class="acct-nav">
-          <button
-            class="acct-nav-item"
-            :class="{ active: section === 'profile' }"
-            @click="section = 'profile'"
-          >
+          <button class="acct-nav-item" :class="{ active: section === 'profile' }" @click="section = 'profile'">
             <span>Profile</span>
           </button>
-          <button
-            class="acct-nav-item"
-            :class="{ active: section === 'orders' }"
-            @click="section = 'orders'"
-          >
+          <button class="acct-nav-item" :class="{ active: section === 'account' }" @click="section = 'account'">
+            <span>Account</span>
+          </button>
+          <button class="acct-nav-item" :class="{ active: section === 'orders' }" @click="section = 'orders'">
             <span>My Orders</span>
             <span v-if="!ordersLoading && stats.orders > 0" class="acct-nav-badge">{{ stats.orders }}</span>
           </button>
-          <button
-            class="acct-nav-item"
-            :class="{ active: section === 'security' }"
-            @click="section = 'security'"
-          >
+          <button class="acct-nav-item" :class="{ active: section === 'security' }" @click="section = 'security'">
             <span>Security</span>
           </button>
           <button class="acct-nav-item acct-nav-item--danger" @click="logout">
@@ -116,25 +185,45 @@ onMounted(async () => {
 
         <!-- ── Profile section ── -->
         <template v-if="section === 'profile'">
+
           <!-- Profile card with banner -->
           <div class="acct-card acct-card--npad">
             <div class="acct-banner">
-              <div class="acct-banner-avatar">{{ initials }}</div>
+              <!-- Avatar with photo controls -->
+              <div class="acct-banner-avatar-wrap">
+                <div class="acct-banner-avatar" :class="{ 'is-uploading': photoUploading }">
+                  <img v-if="profile?.profilePhotoUrl" :src="profile.profilePhotoUrl" alt="Profile photo" />
+                  <span v-else>{{ initials }}</span>
+                  <div class="avatar-overlay" @click="photoInput?.click()">
+                    <span v-if="!photoUploading">{{ profile?.profilePhotoUrl ? '✎' : '+' }}</span>
+                    <span v-else class="avatar-spinner" />
+                  </div>
+                </div>
+                <button
+                  v-if="profile?.profilePhotoUrl"
+                  class="photo-remove-btn"
+                  :disabled="photoUploading"
+                  @click="handleDeletePhoto"
+                >
+                  Remove photo
+                </button>
+              </div>
+              <input ref="photoInput" type="file" accept="image/*" class="hidden-input" @change="handlePhotoChange" />
             </div>
             <div class="acct-banner-body">
+              <p v-if="photoError" class="field-error" style="margin-bottom:8px;">{{ photoError }}</p>
               <div class="acct-name-row">
                 <h2 class="acct-display-name">{{ displayName }}</h2>
                 <span class="acct-tier">★ Member</span>
               </div>
               <div class="acct-meta">
-                <span>{{ user?.email }}</span>
+                <span>{{ jwtUser?.email }}</span>
                 <template v-if="memberSince">
                   <span class="acct-meta-dot">·</span>
                   <span>Member since {{ memberSince }}</span>
                 </template>
               </div>
 
-              <!-- Stats grid -->
               <div class="acct-stats" v-if="!ordersLoading">
                 <div class="acct-stat">
                   <span class="acct-stat-num">{{ stats.orders }}</span>
@@ -157,7 +246,89 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Account info -->
+          <!-- Edit profile -->
+          <div class="acct-card">
+            <div class="acct-card-head">
+              <h3 class="acct-card-title">Personal information</h3>
+            </div>
+
+            <div v-if="profileLoading" class="acct-state">
+              <div class="spinner" />
+            </div>
+
+            <form v-else @submit.prevent="saveProfile">
+              <div class="acct-fields">
+                <div class="acct-field">
+                  <label>First name</label>
+                  <input v-model="editForm.firstName" placeholder="First name" />
+                </div>
+                <div class="acct-field">
+                  <label>Last name</label>
+                  <input v-model="editForm.lastName" placeholder="Last name" />
+                </div>
+                <div class="acct-field">
+                  <label>Date of birth</label>
+                  <input v-model="editForm.dob" type="date" />
+                </div>
+                <div class="acct-field">
+                  <label>Gender</label>
+                  <select v-model="editForm.gender" class="acct-select">
+                    <option value="">Prefer not to say</option>
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                  </select>
+                </div>
+                <div class="acct-field">
+                  <label>Phone</label>
+                  <input v-model="editForm.phone" placeholder="+628123456789" />
+                </div>
+              </div>
+
+              <div class="acct-section-label">Address</div>
+              <div class="acct-fields">
+                <div class="acct-field acct-field--full">
+                  <label>Street</label>
+                  <input v-model="editForm.address.street" placeholder="Street address" />
+                </div>
+                <div class="acct-field">
+                  <label>District</label>
+                  <input v-model="editForm.address.district" placeholder="District" />
+                </div>
+                <div class="acct-field">
+                  <label>Subdistrict</label>
+                  <input v-model="editForm.address.subdistrict" placeholder="Subdistrict" />
+                </div>
+                <div class="acct-field">
+                  <label>City</label>
+                  <input v-model="editForm.address.city" placeholder="City" />
+                </div>
+                <div class="acct-field">
+                  <label>Province</label>
+                  <input v-model="editForm.address.province" placeholder="Province" />
+                </div>
+                <div class="acct-field">
+                  <label>Postal code</label>
+                  <input v-model="editForm.address.postalCode" placeholder="12345" />
+                </div>
+                <div class="acct-field">
+                  <label>Country</label>
+                  <input v-model="editForm.address.country" placeholder="Indonesia" />
+                </div>
+              </div>
+
+              <p v-if="saveError" class="field-error" style="margin-top:12px;">{{ saveError }}</p>
+              <div class="acct-form-actions">
+                <button type="submit" class="btn-primary" :disabled="saving">
+                  {{ saving ? 'Saving…' : 'Save changes' }}
+                </button>
+              </div>
+            </form>
+          </div>
+
+        </template>
+
+        <!-- ── Account section ── -->
+        <template v-else-if="section === 'account'">
           <div class="acct-card">
             <div class="acct-card-head">
               <h3 class="acct-card-title">Account information</h3>
@@ -165,16 +336,17 @@ onMounted(async () => {
             <div class="acct-fields">
               <div class="acct-field">
                 <label>Username</label>
-                <input :value="user?.username ?? displayName" readonly />
+                <input :value="profile?.username" readonly />
               </div>
               <div class="acct-field">
                 <label>Email</label>
-                <input :value="user?.email" readonly />
+                <input :value="profile?.email" readonly />
               </div>
-              <div class="acct-field">
-                <label>Role</label>
-                <input :value="user?.role" readonly />
-              </div>
+            </div>
+            <div class="acct-form-actions" style="margin-top:18px;">
+              <button type="button" class="btn-outline" disabled title="Coming soon">
+                Reset password
+              </button>
             </div>
           </div>
         </template>
@@ -187,9 +359,7 @@ onMounted(async () => {
               <span class="acct-card-count" v-if="!ordersLoading">{{ stats.orders }} orders</span>
             </div>
 
-            <div v-if="ordersLoading" class="acct-state">
-              <div class="spinner" />
-            </div>
+            <div v-if="ordersLoading" class="acct-state"><div class="spinner" /></div>
 
             <div v-else-if="!orders.filter(o => o.status !== 'CART').length" class="acct-state">
               <p>No orders yet.</p>
@@ -273,7 +443,9 @@ onMounted(async () => {
   background: var(--ink); color: #FAF8F4;
   font-family: var(--serif); font-size: 16px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
 }
+.acct-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .acct-side-user-info { min-width: 0; }
 .acct-side-name { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .acct-side-email { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
@@ -315,15 +487,45 @@ onMounted(async () => {
   background: linear-gradient(135deg, var(--ink) 0%, #3d3424 60%, var(--gold) 100%);
   margin-bottom: 52px;
 }
+.acct-banner-avatar-wrap {
+  position: absolute; left: 24px; bottom: -40px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+}
 .acct-banner-avatar {
-  position: absolute; left: 24px; bottom: -36px;
   width: 72px; height: 72px; border-radius: 16px;
   background: var(--gold); color: #FAF8F4;
   font-family: var(--serif); font-size: 28px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   border: 4px solid var(--surface);
   box-shadow: 0 8px 24px rgba(22,20,15,.18);
+  position: relative; overflow: hidden; cursor: pointer;
 }
+.acct-banner-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.45); opacity: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 18px; transition: opacity .18s;
+}
+.acct-banner-avatar:hover .avatar-overlay { opacity: 1; }
+.acct-banner-avatar.is-uploading .avatar-overlay { opacity: 1; }
+.avatar-spinner {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.3); border-top-color: #fff;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.photo-remove-btn {
+  font-size: 10px; color: var(--warn); background: none; border: none;
+  cursor: pointer; padding: 0; font-family: var(--sans);
+  white-space: nowrap;
+}
+.photo-remove-btn:hover { text-decoration: underline; }
+.photo-remove-btn:disabled { opacity: .5; cursor: default; }
+
+.hidden-input { display: none; }
+
 .acct-banner-body { padding: 0 24px 24px; }
 .acct-name-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
 .acct-display-name { font-family: var(--serif); font-size: 22px; font-weight: 400; color: var(--ink); margin: 0; }
@@ -353,14 +555,28 @@ onMounted(async () => {
 .acct-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 560px) { .acct-fields { grid-template-columns: 1fr; } }
 .acct-field { display: flex; flex-direction: column; gap: 6px; }
+.acct-field--full { grid-column: 1 / -1; }
 .acct-field label { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
-.acct-field input {
+.acct-field input, .acct-select {
   height: 40px; padding: 0 12px;
   background: var(--line-2); border: 1px solid var(--line);
   border-radius: 9px; font-size: 13px; color: var(--ink);
-  font-family: var(--sans);
+  font-family: var(--sans); width: 100%; box-sizing: border-box;
+}
+.acct-field input:focus, .acct-select:focus {
+  outline: none; border-color: var(--ink-3);
 }
 .acct-field input[readonly] { cursor: default; }
+.acct-select { cursor: pointer; }
+
+.acct-section-label {
+  font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-3); margin: 20px 0 12px;
+}
+
+.field-error { font-size: 12px; color: var(--warn); margin: 0; }
+
+.acct-form-actions { display: flex; justify-content: flex-end; margin-top: 20px; }
 
 /* Orders */
 .acct-state { padding: 40px; text-align: center; color: var(--ink-3); display: flex; flex-direction: column; align-items: center; gap: 6px; }
