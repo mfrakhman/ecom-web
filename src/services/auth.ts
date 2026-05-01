@@ -93,6 +93,14 @@ export function verifyEmail(email: string, code: string) {
   return post<{ message: string; access_token: string; refresh_token: string }>('/auth/verify-email', { email, code })
 }
 
+export function sendLoginOtp(email: string) {
+  return post<{ message: string }>('/auth/login/otp/send', { email })
+}
+
+export function verifyLoginOtp(email: string, code: string) {
+  return post<{ access_token: string; refresh_token: string }>('/auth/login/otp', { email, code })
+}
+
 export interface Address {
   street?: string; district?: string; subdistrict?: string
   city?: string; province?: string; postalCode?: string; country?: string
