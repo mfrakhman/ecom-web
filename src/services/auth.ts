@@ -85,6 +85,14 @@ export function register(email: string, username: string, password: string) {
   return post<{ message: string }>('/auth/register', { email, username, password })
 }
 
+export function sendVerificationOtp(email: string) {
+  return post<{ message: string }>('/auth/verify-email/send', { email })
+}
+
+export function verifyEmail(email: string, code: string) {
+  return post<{ message: string; access_token: string; refresh_token: string }>('/auth/verify-email', { email, code })
+}
+
 export interface Address {
   street?: string; district?: string; subdistrict?: string
   city?: string; province?: string; postalCode?: string; country?: string

@@ -21,7 +21,7 @@ async function handleSubmit() {
   loading.value = true
   try {
     await register(email.value, username.value, password.value)
-    router.push('/login')
+    router.push(`/verify-email?email=${encodeURIComponent(email.value)}`)
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Registration failed. Please try again.'
   } finally {
