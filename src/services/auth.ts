@@ -101,6 +101,18 @@ export function verifyLoginOtp(email: string, code: string) {
   return post<{ access_token: string; refresh_token: string }>('/auth/login/otp', { email, code })
 }
 
+export function sendForgotPasswordOtp(email: string) {
+  return post<{ message: string }>('/auth/forgot-password', { email })
+}
+
+export function verifyForgotPasswordOtp(email: string, code: string) {
+  return post<{ reset_token: string }>('/auth/forgot-password/verify', { email, code })
+}
+
+export function resetPassword(token: string, password: string) {
+  return post<{ message: string }>('/auth/reset-password', { token, password })
+}
+
 export interface Address {
   street?: string; district?: string; subdistrict?: string
   city?: string; province?: string; postalCode?: string; country?: string

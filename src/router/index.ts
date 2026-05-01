@@ -9,6 +9,8 @@ import OrdersPage from '../pages/OrdersPage.vue'
 import PaymentPage from '../pages/PaymentPage.vue'
 import AccountPage from '../pages/AccountPage.vue'
 import VerifyEmailPage from '../pages/VerifyEmailPage.vue'
+import ForgotPasswordPage from '../pages/ForgotPasswordPage.vue'
+import ResetPasswordPage from '../pages/ResetPasswordPage.vue'
 import { getToken, getRole } from '../services/auth'
 
 const AdminDashboard = () => import('../pages/admin/AdminDashboard.vue')
@@ -20,7 +22,7 @@ const AdminColors = () => import('../pages/admin/AdminColors.vue')
 const AdminSizes = () => import('../pages/admin/AdminSizes.vue')
 
 const AUTH_REDIRECT = ['/login', '/register']
-const OPEN_ROUTES = ['/', '/login', '/register', '/verify-email']
+const OPEN_ROUTES = ['/', '/login', '/register', '/verify-email', '/forgot-password', '/reset-password']
 
 const router = createRouter({
   history: createWebHistory(),
@@ -35,6 +37,8 @@ const router = createRouter({
     { path: '/login', component: LoginPage },
     { path: '/register', component: RegisterPage },
     { path: '/verify-email', component: VerifyEmailPage },
+    { path: '/forgot-password', component: ForgotPasswordPage },
+    { path: '/reset-password', component: ResetPasswordPage },
     { path: '/admin', component: AdminDashboard },
     { path: '/admin/products', component: AdminProducts },
     { path: '/admin/products/:id', component: AdminProductDetail },

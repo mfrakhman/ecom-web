@@ -344,7 +344,7 @@ onMounted(async () => {
               </div>
             </div>
             <div class="acct-form-actions" style="margin-top:18px;">
-              <button type="button" class="btn-outline" disabled title="Coming soon">
+              <button type="button" class="btn-outline" @click="router.push('/forgot-password')">
                 Reset password
               </button>
             </div>

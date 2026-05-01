@@ -212,7 +212,7 @@ async function handlePasswordLogin() {
           <div class="field">
             <label for="password">
               Password
-              <a href="#" class="label-link">Forgot?</a>
+              <RouterLink to="/forgot-password" class="label-link">Forgot?</RouterLink>
             </label>
             <input
               id="password"
