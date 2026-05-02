@@ -38,6 +38,10 @@ function switchMode(m: 'otp' | 'password') {
 
 // ── OTP mode ──────────────────────────────────────────────────────────────
 
+function redirectToVerify() {
+  router.push(`/verify-email?email=${encodeURIComponent(email.value)}`)
+}
+
 async function handleSendOtp() {
   if (!email.value) { error.value = 'Enter your email'; return }
   error.value = ''
@@ -47,7 +51,11 @@ async function handleSendOtp() {
     otpStep.value = 'code'
     startCooldown()
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to send code'
+    if (e instanceof Error && e.message === 'EMAIL_NOT_VERIFIED') {
+      redirectToVerify()
+    } else {
+      error.value = e instanceof Error ? e.message : 'Failed to send code'
+    }
   } finally {
     loading.value = false
   }
@@ -112,7 +120,11 @@ async function handlePasswordLogin() {
     saveRefreshToken(refresh_token)
     router.push('/')
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Login failed. Please try again.'
+    if (e instanceof Error && e.message === 'EMAIL_NOT_VERIFIED') {
+      redirectToVerify()
+    } else {
+      error.value = e instanceof Error ? e.message : 'Login failed. Please try again.'
+    }
   } finally {
     loading.value = false
   }
