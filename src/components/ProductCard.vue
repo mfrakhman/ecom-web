@@ -56,7 +56,10 @@ async function onHover() {
   try {
     skus.value = await getProductSkus(props.product.id)
     hasFetched.value = true
-    if (uniqueColors.value.length > 0) selectedColor.value = uniqueColors.value[0]
+    if (uniqueColors.value.length > 0) {
+      const firstColorId = props.product.images?.[0]?.colorId
+      selectedColor.value = uniqueColors.value.find(c => c.id === firstColorId) ?? uniqueColors.value[0]
+    }
   } finally {
     loadingSkus.value = false
   }
