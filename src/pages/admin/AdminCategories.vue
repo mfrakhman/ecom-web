@@ -2,13 +2,14 @@
 import { ref, onMounted, watch } from 'vue'
 import AdminLayout from '../../components/AdminLayout.vue'
 import {
-  getCategories, createCategory, updateCategory, deleteCategory,
-  type CategoryNode,
+  getCategories, getGenders, getCategoryGroups,
+  createCategory, updateCategory, deleteCategory,
+  type CategoryRef, type GenderRef, type CategoryGroupRef,
 } from '../../services/admin'
 
-interface FlatCat { id: string; name: string; slug: string; parentId: string | null; displayOrder: number; level: number }
-
-const flat = ref<FlatCat[]>([])
+const cats = ref<CategoryRef[]>([])
+const genders = ref<GenderRef[]>([])
+const groups = ref<CategoryGroupRef[]>([])
 const loading = ref(false)
 const error = ref('')
 const showModal = ref(false)
@@ -16,7 +17,7 @@ const saving = ref(false)
 const modalError = ref('')
 const editingId = ref<string | null>(null)
 
-const form = ref({ name: '', slug: '', parentId: '', displayOrder: 0 })
+const form = ref({ name: '', slug: '', genderId: '', groupId: '', displayOrder: 0 })
 
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -26,20 +27,19 @@ watch(() => form.value.name, (val) => {
   if (!editingId.value) form.value.slug = slugify(val)
 })
 
-function flattenTree(nodes: CategoryNode[], level = 0): FlatCat[] {
-  const result: FlatCat[] = []
-  for (const n of nodes) {
-    result.push({ id: n.id, name: n.name, slug: n.slug, parentId: n.parentId, displayOrder: n.displayOrder ?? 0, level })
-    if (n.children?.length) result.push(...flattenTree(n.children, level + 1))
-  }
-  return result
-}
-
 async function load() {
   loading.value = true
   try {
-    const res = await getCategories()
-    flat.value = flattenTree(res.data ?? [])
+    const [cRes, gRes, grpRes] = await Promise.all([getCategories(), getGenders(), getCategoryGroups()])
+    cats.value = (cRes.data ?? []).sort((a, b) => {
+      const gA = a.gender?.displayOrder ?? 0, gB = b.gender?.displayOrder ?? 0
+      if (gA !== gB) return gA - gB
+      const grA = a.group?.displayOrder ?? 0, grB = b.group?.displayOrder ?? 0
+      if (grA !== grB) return grA - grB
+      return (a.displayOrder ?? 0) - (b.displayOrder ?? 0)
+    })
+    genders.value = gRes.data ?? []
+    groups.value = grpRes.data ?? []
   } catch {
     error.value = 'Failed to load categories.'
   } finally {
@@ -49,14 +49,14 @@ async function load() {
 
 function openCreate() {
   editingId.value = null
-  form.value = { name: '', slug: '', parentId: '', displayOrder: 0 }
+  form.value = { name: '', slug: '', genderId: genders.value[0]?.id ?? '', groupId: groups.value[0]?.id ?? '', displayOrder: 0 }
   modalError.value = ''
   showModal.value = true
 }
 
-function openEdit(c: FlatCat) {
+function openEdit(c: CategoryRef) {
   editingId.value = c.id
-  form.value = { name: c.name, slug: c.slug, parentId: c.parentId ?? '', displayOrder: c.displayOrder }
+  form.value = { name: c.name, slug: c.slug, genderId: c.genderId, groupId: c.groupId, displayOrder: c.displayOrder ?? 0 }
   modalError.value = ''
   showModal.value = true
 }
@@ -68,7 +68,8 @@ async function save() {
     const payload = {
       name: form.value.name,
       slug: form.value.slug,
-      parentId: form.value.parentId || undefined,
+      genderId: form.value.genderId,
+      groupId: form.value.groupId,
       displayOrder: form.value.displayOrder,
     }
     if (editingId.value) {
@@ -85,8 +86,8 @@ async function save() {
   }
 }
 
-async function remove(c: FlatCat) {
-  if (!confirm(`Delete "${c.name}"? Child categories may also be removed.`)) return
+async function remove(c: CategoryRef) {
+  if (!confirm(`Delete "${c.name}"?`)) return
   try {
     await deleteCategory(c.id)
     await load()
@@ -94,10 +95,6 @@ async function remove(c: FlatCat) {
     alert(e instanceof Error ? e.message : 'Failed to delete.')
   }
 }
-
-// Only top-level categories are eligible parents (depth 0 → you can select level-0 to create level-1)
-// Actually show all except the item being edited to avoid circular refs
-const parentOptions = () => flat.value.filter(c => c.id !== editingId.value)
 
 onMounted(load)
 </script>
@@ -119,29 +116,21 @@ onMounted(load)
             <tr>
               <th>Name</th>
               <th>Slug</th>
-              <th>Parent</th>
+              <th>Gender</th>
+              <th>Group</th>
               <th>Order</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="flat.length === 0">
-              <td colspan="5" style="text-align:center; color:var(--ink-3)">No categories yet.</td>
+            <tr v-if="cats.length === 0">
+              <td colspan="6" style="text-align:center; color:var(--ink-3)">No categories yet.</td>
             </tr>
-            <tr v-for="c in flat" :key="c.id">
-              <td>
-                <span :style="{ paddingLeft: `${c.level * 20}px` }">
-                  <span v-if="c.level > 0" style="color:var(--ink-3); margin-right:6px;">↳</span>
-                  {{ c.name }}
-                </span>
-              </td>
+            <tr v-for="c in cats" :key="c.id">
+              <td>{{ c.name }}</td>
               <td><code style="font-size:12px;">{{ c.slug }}</code></td>
-              <td>
-                <span class="badge" v-if="c.parentId">
-                  {{ flat.find(x => x.id === c.parentId)?.name ?? '—' }}
-                </span>
-                <span v-else style="color:var(--ink-3); font-size:13px;">—</span>
-              </td>
+              <td><span class="badge">{{ c.gender?.name ?? '—' }}</span></td>
+              <td><span class="badge badge--outline">{{ c.group?.name ?? '—' }}</span></td>
               <td style="color:var(--ink-3); font-size:13px;">{{ c.displayOrder }}</td>
               <td>
                 <div class="action-btns">
@@ -170,12 +159,17 @@ onMounted(load)
               <input v-model="form.slug" type="text" placeholder="e.g. mens-jackets" required />
             </div>
             <div class="field">
-              <label>Parent Category</label>
-              <select v-model="form.parentId">
-                <option value="">None (top-level)</option>
-                <option v-for="c in parentOptions()" :key="c.id" :value="c.id">
-                  {{ '—'.repeat(c.level) }} {{ c.name }}
-                </option>
+              <label>Gender</label>
+              <select v-model="form.genderId" required>
+                <option value="" disabled>Select gender</option>
+                <option v-for="g in genders" :key="g.id" :value="g.id">{{ g.name }}</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Group</label>
+              <select v-model="form.groupId" required>
+                <option value="" disabled>Select group</option>
+                <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
               </select>
             </div>
             <div class="field">

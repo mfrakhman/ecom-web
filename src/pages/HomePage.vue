@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import Navbar from '../components/Navbar.vue'
 import AppFooter from '../components/AppFooter.vue'
 import ProductCard from '../components/ProductCard.vue'
-import { getProducts, type Product } from '../services/products'
+import { getProducts, type Product, type CategoryRef, type GenderRef } from '../services/products'
 import { safeFetch } from '../services/http'
 
 const route = useRoute()
@@ -15,41 +15,27 @@ const loading = ref(false)
 const error = ref('')
 const LIMIT = 6
 
-interface FlatCategory { id: string; parentId: string | null; slug: string; name: string }
-const allCategories = ref<FlatCategory[]>([])
-
-function flattenTree(nodes: any[]): FlatCategory[] {
-  const result: FlatCategory[] = []
-  for (const node of nodes) {
-    result.push({ id: node.id, parentId: node.parentId ?? null, slug: node.slug, name: node.name })
-    if (node.children?.length) result.push(...flattenTree(node.children))
-  }
-  return result
-}
-
-function descendantSlugs(slug: string): Set<string> {
-  const root = allCategories.value.find(c => c.slug === slug)
-  if (!root) return new Set([slug])
-  const slugs = new Set<string>()
-  const collect = (id: string) => {
-    const cat = allCategories.value.find(c => c.id === id)
-    if (cat) slugs.add(cat.slug)
-    allCategories.value.filter(c => c.parentId === id).forEach(child => collect(child.id))
-  }
-  collect(root.id)
-  return slugs
-}
+const allGenders = ref<GenderRef[]>([])
+const allCategories = ref<CategoryRef[]>([])
 
 const page = computed(() => Math.max(1, Number(route.query.page) || 1))
 const searchQuery = computed(() => (route.query.q as string) || '')
 const activeCategory = computed(() => (route.query.category as string) || '')
 const isFiltered = computed(() => !!(searchQuery.value || activeCategory.value))
-const topLevelCategories = computed(() => allCategories.value.filter(c => !c.parentId))
 
 const filtered = computed(() => {
-  if (!activeCategory.value) return allProducts.value
-  const slugs = descendantSlugs(activeCategory.value)
-  return allProducts.value.filter(p => p.category?.slug && slugs.has(p.category.slug))
+  const slug = activeCategory.value
+  if (!slug) return allProducts.value
+  // Match gender slug → include all products in that gender
+  const gender = allGenders.value.find(g => g.slug === slug)
+  if (gender) {
+    const catIds = new Set(allCategories.value.filter(c => c.genderId === gender.id).map(c => c.id))
+    return allProducts.value.filter(p => catIds.has(p.categoryId))
+  }
+  // Match specific category slug
+  const cat = allCategories.value.find(c => c.slug === slug)
+  if (cat) return allProducts.value.filter(p => p.categoryId === cat.id)
+  return allProducts.value
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / LIMIT)))
@@ -59,8 +45,11 @@ const pageProducts = computed(() => {
 })
 
 const activeCategoryName = computed(() => {
-  if (!activeCategory.value) return ''
-  return allCategories.value.find(c => c.slug === activeCategory.value)?.name ?? activeCategory.value
+  const slug = activeCategory.value
+  if (!slug) return ''
+  const g = allGenders.value.find(g => g.slug === slug)
+  if (g) return g.name
+  return allCategories.value.find(c => c.slug === slug)?.name ?? slug
 })
 
 async function fetchProducts() {
@@ -78,9 +67,12 @@ async function fetchProducts() {
 async function fetchCategories() {
   try {
     const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
-    const res = await safeFetch(`${BASE}/categories`)
-    const json = await res.json()
-    allCategories.value = flattenTree(json.data ?? json)
+    const [gRes, cRes] = await Promise.all([
+      safeFetch(`${BASE}/genders`).then(r => r.json()),
+      safeFetch(`${BASE}/categories`).then(r => r.json()),
+    ])
+    allGenders.value = (gRes.data ?? gRes).sort((a: GenderRef, b: GenderRef) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+    allCategories.value = cRes.data ?? cRes
   } catch {}
 }
 
@@ -114,16 +106,16 @@ function selectCategory(slug: string) {
       </div>
     </section>
 
-    <!-- Category tiles -->
-    <section v-if="!isFiltered && topLevelCategories.length" class="cat-strip">
+    <!-- Gender tiles -->
+    <section v-if="!isFiltered && allGenders.length" class="cat-strip">
       <div class="cat-strip-inner">
         <button
-          v-for="cat in topLevelCategories"
-          :key="cat.id"
+          v-for="g in allGenders"
+          :key="g.id"
           class="cat-tile"
-          @click="selectCategory(cat.slug)"
+          @click="selectCategory(g.slug)"
         >
-          <span class="cat-tile-name">{{ cat.name }}</span>
+          <span class="cat-tile-name">{{ g.name }}</span>
           <span class="cat-tile-arrow">→</span>
         </button>
       </div>

@@ -4,7 +4,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { clearToken, getToken } from '../services/auth'
 import { useCart, openCartDrawer } from '../composables/useCart'
 import { safeFetch } from '../services/http'
-import type { CategoryRef } from '../services/products'
+import type { CategoryRef, GenderRef, CategoryGroupRef } from '../services/products'
 
 const router = useRouter()
 const search = ref('')
@@ -14,29 +14,51 @@ const showUser = ref(false)
 const { count, fetchCart, reset } = useCart()
 const isLoggedIn = computed(() => !!getToken())
 
-const categories = ref<CategoryRef[]>([])
-const topLevel = computed(() => categories.value.filter(c => !c.parentId))
+const hoveredGender = ref<GenderRef | null>(null)
+const hoveredGroup  = ref<CategoryGroupRef | null>(null)
 
-function flattenTree(nodes: any[]): CategoryRef[] {
-  const result: CategoryRef[] = []
-  for (const node of nodes) {
-    result.push({ id: node.id, parentId: node.parentId ?? null, name: node.name, slug: node.slug })
-    if (node.children?.length) result.push(...flattenTree(node.children))
-  }
-  return result
-}
+const genders        = ref<GenderRef[]>([])
+const categoryGroups = ref<CategoryGroupRef[]>([])
+const categories     = ref<CategoryRef[]>([])
+
+const visibleGroups = computed(() => {
+  if (!hoveredGender.value) return []
+  const gId = hoveredGender.value.id
+  const groupIds = new Set(categories.value.filter(c => c.genderId === gId).map(c => c.groupId))
+  return categoryGroups.value
+    .filter(g => groupIds.has(g.id))
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+})
+
+const visibleCategories = computed(() => {
+  if (!hoveredGender.value || !hoveredGroup.value) return []
+  return categories.value
+    .filter(c => c.genderId === hoveredGender.value!.id && c.groupId === hoveredGroup.value!.id)
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+})
 
 onMounted(async () => {
   if (isLoggedIn.value) fetchCart()
   try {
     const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
-    const res = await safeFetch(`${BASE}/categories`)
-    const json = await res.json()
-    categories.value = flattenTree(json.data ?? json)
+    const [gRes, grpRes, cRes] = await Promise.all([
+      safeFetch(`${BASE}/genders`).then(r => r.json()),
+      safeFetch(`${BASE}/category-groups`).then(r => r.json()),
+      safeFetch(`${BASE}/categories`).then(r => r.json()),
+    ])
+    genders.value = (gRes.data ?? gRes).sort((a: GenderRef, b: GenderRef) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+    categoryGroups.value = grpRes.data ?? grpRes
+    categories.value = cRes.data ?? cRes
   } catch {
     // non-critical
   }
 })
+
+function closeMenu() {
+  showCategory.value = false
+  hoveredGender.value = null
+  hoveredGroup.value  = null
+}
 
 function submitSearch() {
   const q = search.value.trim()
@@ -46,7 +68,7 @@ function submitSearch() {
 
 function selectCategory(slug: string) {
   router.push({ path: '/', query: slug ? { category: slug } : {} })
-  showCategory.value = false
+  closeMenu()
 }
 
 function logout() {
@@ -70,28 +92,57 @@ function logout() {
         <nav class="nav-links">
           <RouterLink to="/" class="nav-link">Home</RouterLink>
 
-          <div class="nav-dropdown-wrap">
-            <button class="nav-link nav-dropdown-btn" @click="showCategory = !showCategory">
+          <div class="nav-dropdown-wrap" @mouseenter="showCategory = true" @mouseleave="closeMenu">
+            <button class="nav-link nav-dropdown-btn">
               Category
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
             </button>
-            <div v-if="showCategory" class="nav-backdrop" @click="showCategory = false" />
-            <div v-if="showCategory" class="dropdown-menu">
-              <button class="dropdown-item" @click="selectCategory('')">All Categories</button>
-              <template v-for="cat in topLevel" :key="cat.id">
-                <button class="dropdown-item" style="font-weight:600;" @click="selectCategory(cat.slug)">
+
+            <div v-if="showCategory" class="dropdown-mega">
+              <!-- Col 1: Genders -->
+              <div class="mega-col">
+                <button class="dropdown-item" @click="selectCategory('')">All Products</button>
+                <div class="dropdown-divider" />
+                <button
+                  v-for="g in genders"
+                  :key="g.id"
+                  class="dropdown-item dropdown-item--arrow"
+                  :class="{ 'dropdown-item--active': hoveredGender?.id === g.id }"
+                  @mouseenter="hoveredGender = g; hoveredGroup = null"
+                  @click="selectCategory(g.slug)"
+                >
+                  {{ g.name }}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+              </div>
+
+              <!-- Col 2: Groups -->
+              <div v-if="hoveredGender" class="mega-col mega-col--border">
+                <div class="mega-col-label">{{ hoveredGender.name }}</div>
+                <button
+                  v-for="grp in visibleGroups"
+                  :key="grp.id"
+                  class="dropdown-item dropdown-item--arrow"
+                  :class="{ 'dropdown-item--active': hoveredGroup?.id === grp.id }"
+                  @mouseenter="hoveredGroup = grp"
+                >
+                  {{ grp.name }}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+              </div>
+
+              <!-- Col 3: Leaf categories -->
+              <div v-if="hoveredGroup" class="mega-col mega-col--border">
+                <div class="mega-col-label">{{ hoveredGroup.name }}</div>
+                <button
+                  v-for="cat in visibleCategories"
+                  :key="cat.id"
+                  class="dropdown-item"
+                  @click="selectCategory(cat.slug)"
+                >
                   {{ cat.name }}
                 </button>
-                <button
-                  v-for="sub in categories.filter(c => c.parentId === cat.id)"
-                  :key="sub.id"
-                  class="dropdown-item"
-                  style="padding-left:20px;"
-                  @click="selectCategory(sub.slug)"
-                >
-                  {{ sub.name }}
-                </button>
-              </template>
+              </div>
             </div>
           </div>
         </nav>
@@ -163,23 +214,37 @@ function logout() {
 .nav-link:hover, .nav-link.router-link-active { color: var(--ink); background: var(--line-2); }
 .nav-dropdown-btn { display: flex; align-items: center; gap: 4px; }
 .nav-dropdown-wrap { position: relative; }
-.nav-backdrop { position: fixed; inset: 0; z-index: 10; }
+.dropdown-mega {
+  position: absolute; top: 100%; left: 0;
+  display: flex;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: var(--shadow-md); z-index: 20;
+}
+.mega-col { padding: 6px; min-width: 160px; }
+.mega-col--border { border-left: 1px solid var(--line); }
+.mega-col-label {
+  padding: 6px 12px 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--ink-3);
+}
 .dropdown-menu {
-  position: absolute; top: calc(100% + 8px); left: 0;
+  position: absolute; top: 100%; left: auto; right: 0;
   background: var(--surface); border: 1px solid var(--line);
   border-radius: 12px; padding: 6px; min-width: 180px;
   box-shadow: var(--shadow-md); z-index: 20;
 }
-.dropdown-menu--right { left: auto; right: 0; }
 .dropdown-item {
   display: block; width: 100%; text-align: left; padding: 9px 12px;
   font-size: 14px; font-weight: 500; color: var(--ink-2);
   background: none; border: none; border-radius: 8px; cursor: pointer;
   font-family: var(--sans); text-decoration: none; transition: background .12s, color .12s;
 }
-.dropdown-item:hover { background: var(--line-2); color: var(--ink); }
+.dropdown-item:hover, .dropdown-item--active { background: var(--line-2); color: var(--ink); }
 .dropdown-item--danger { color: var(--warn); }
 .dropdown-item--danger:hover { background: rgba(180,61,61,.08); color: var(--warn); }
+.dropdown-item--arrow { display: flex; align-items: center; justify-content: space-between; }
+.dropdown-divider { height: 1px; background: var(--line); margin: 4px 6px; }
 .dropdown-label { display: block; padding: 6px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--ink-3); }
 .nav-search {
   flex: 1; display: flex; align-items: center; gap: 8px;

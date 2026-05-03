@@ -222,7 +222,9 @@ onMounted(async () => {
                 <label>Category</label>
                 <select v-model="form.categoryId" required>
                   <option value="" disabled>Select category</option>
-                  <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                  <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                    {{ cat.gender?.name ?? '' }} › {{ cat.group?.name ?? '' }} › {{ cat.name }}
+                  </option>
                 </select>
               </div>
               <div class="field">

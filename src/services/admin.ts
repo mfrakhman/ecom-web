@@ -1,7 +1,7 @@
 import { safeFetch } from './http'
-import type { ColorRef, SizeRef, CategoryRef, ProductColorImage, SkuInfo, ProductDetail } from './products'
+import type { ColorRef, SizeRef, CategoryRef, GenderRef, CategoryGroupRef, ProductColorImage, SkuInfo, ProductDetail } from './products'
 
-export type { ColorRef, SizeRef, CategoryRef, ProductColorImage, SkuInfo, ProductDetail }
+export type { ColorRef, SizeRef, CategoryRef, GenderRef, CategoryGroupRef, ProductColorImage, SkuInfo, ProductDetail }
 
 const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
 
@@ -127,12 +127,18 @@ export function deleteColorImage(productId: string, colorId: string, imageId: st
 }
 
 // Reference data
-export interface CategoryNode extends CategoryRef {
-  children?: CategoryNode[]
+export type CategoryNode = CategoryRef
+
+export function getCategories(): Promise<{ message: string; data: CategoryRef[] }> {
+  return req('GET', '/categories')
 }
 
-export function getCategories(): Promise<{ message: string; data: CategoryNode[] }> {
-  return req('GET', '/categories')
+export function getGenders(): Promise<{ message: string; data: GenderRef[] }> {
+  return req('GET', '/genders')
+}
+
+export function getCategoryGroups(): Promise<{ message: string; data: CategoryGroupRef[] }> {
+  return req('GET', '/category-groups')
 }
 
 export function getColors(): Promise<{ message: string; data: ColorRef[] }> {
@@ -145,10 +151,10 @@ export function getSizes(sizeGroup?: string): Promise<{ message: string; data: S
 }
 
 // Categories CRUD
-export function createCategory(data: { name: string; slug: string; parentId?: string; displayOrder?: number }) {
+export function createCategory(data: { name: string; slug: string; genderId: string; groupId: string; displayOrder?: number }) {
   return req<{ message: string; data: CategoryRef }>('POST', '/categories', data)
 }
-export function updateCategory(id: string, data: { name?: string; slug?: string; parentId?: string; displayOrder?: number }) {
+export function updateCategory(id: string, data: { name?: string; slug?: string; genderId?: string; groupId?: string; displayOrder?: number }) {
   return req<{ message: string }>('PATCH', `/categories/${id}`, data)
 }
 export function deleteCategory(id: string) {

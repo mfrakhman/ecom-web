@@ -152,6 +152,11 @@ img { display: block; }
   background: var(--gold-bg);
   color: var(--gold);
 }
+.badge--outline {
+  background: transparent;
+  border: 1.5px solid var(--line);
+  color: var(--ink-2);
+}
 
 /* ── Admin shared (used across Dashboard, Products, ProductDetail, Orders) ─ */
 

@@ -4,7 +4,13 @@ const BASE = (import.meta.env.VITE_API_URL as string) || '/api'
 
 export interface ColorRef { id: string; name: string; slug: string; hex: string; displayOrder?: number }
 export interface SizeRef  { id: string; name: string; slug: string; sizeGroup: string; sortOrder?: number }
-export interface CategoryRef { id: string; name: string; slug: string; parentId: string | null; displayOrder?: number }
+export interface GenderRef { id: string; name: string; slug: string; displayOrder?: number }
+export interface CategoryGroupRef { id: string; name: string; slug: string; displayOrder?: number }
+export interface CategoryRef {
+  id: string; name: string; slug: string; displayOrder?: number
+  genderId: string; groupId: string
+  gender?: GenderRef; group?: CategoryGroupRef
+}
 export interface ProductColorImage { id: string; colorId: string; imageUrl: string }
 
 export interface SkuInfo {
