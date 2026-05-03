@@ -17,6 +17,7 @@ const AdminDashboard = () => import('../pages/admin/AdminDashboard.vue')
 const AdminProducts = () => import('../pages/admin/AdminProducts.vue')
 const AdminProductDetail = () => import('../pages/admin/AdminProductDetail.vue')
 const AdminOrders = () => import('../pages/admin/AdminOrders.vue')
+const AdminUsers = () => import('../pages/admin/AdminUsers.vue')
 const AdminCategories = () => import('../pages/admin/AdminCategories.vue')
 const AdminColors = () => import('../pages/admin/AdminColors.vue')
 const AdminSizes = () => import('../pages/admin/AdminSizes.vue')
@@ -43,6 +44,7 @@ const router = createRouter({
     { path: '/admin/products', component: AdminProducts },
     { path: '/admin/products/:id', component: AdminProductDetail },
     { path: '/admin/orders', component: AdminOrders },
+    { path: '/admin/users', component: AdminUsers },
     { path: '/admin/categories', component: AdminCategories },
     { path: '/admin/colors', component: AdminColors },
     { path: '/admin/sizes', component: AdminSizes },
@@ -52,7 +54,7 @@ const router = createRouter({
 router.beforeEach((to) => {
   const token = getToken()
   const isOpen = OPEN_ROUTES.includes(to.path) || to.path.startsWith('/products/')
-  if (!token && !isOpen) return '/login'
+  if (!token && !isOpen) return `/login?redirect=${encodeURIComponent(to.fullPath)}`
   if (token && AUTH_REDIRECT.includes(to.path)) return '/'
   if (to.path.startsWith('/admin') && getRole() !== 'ADMIN') return '/'
 })

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { login, sendLoginOtp, verifyLoginOtp, saveToken, saveRefreshToken } from '../services/auth'
 
 const router = useRouter()
+const route = useRoute()
 
 const mode     = ref<'otp' | 'password'>('otp')
 const otpStep  = ref<'email' | 'code'>('email')
@@ -80,7 +81,7 @@ async function handleVerifyOtp() {
     const { access_token, refresh_token } = await verifyLoginOtp(email.value, code.value)
     saveToken(access_token)
     saveRefreshToken(refresh_token)
-    router.push('/')
+    router.push((route.query.redirect as string) || '/')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Invalid code'
     digits.value = ['', '', '', '', '', '']
@@ -118,7 +119,7 @@ async function handlePasswordLogin() {
     const { access_token, refresh_token } = await login(email.value, password.value)
     saveToken(access_token)
     saveRefreshToken(refresh_token)
-    router.push('/')
+    router.push((route.query.redirect as string) || '/')
   } catch (e) {
     if (e instanceof Error && e.message === 'EMAIL_NOT_VERIFIED') {
       redirectToVerify()

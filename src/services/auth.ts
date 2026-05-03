@@ -179,3 +179,21 @@ export async function deletePhoto(): Promise<Profile> {
   if (!res.ok) throw new Error(data.message || 'Delete failed')
   return data
 }
+
+export async function getUsers(): Promise<Profile[]> {
+  const res = await safeFetch(`${BASE}/users`, { headers: authHeaders() })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Failed to load users')
+  return data
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  const res = await safeFetch(`${BASE}/users/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  })
+  if (!res.ok) {
+    const data = await res.json()
+    throw new Error(data.message || 'Failed to delete user')
+  }
+}
