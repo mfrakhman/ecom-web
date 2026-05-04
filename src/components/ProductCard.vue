@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Product, SkuInfo, ColorRef } from '../services/products'
 import { getProductSkus } from '../services/products'
+import { useWishlist } from '../composables/useWishlist'
 
 const props = defineProps<{ product: Product }>()
 const router = useRouter()
+const { isWishlisted, toggle, load } = useWishlist()
 
 const hovered = ref(false)
 const hasFetched = ref(false)
@@ -49,6 +51,15 @@ const displayImageUrl = computed(() => {
   return props.product.images?.[0]?.imageUrl ?? null
 })
 
+const wishlistSkuId = computed(() => {
+  if (selectedColor.value) {
+    return activeSkus.value.find(s => s.colorId === selectedColor.value!.id)?.id ?? activeSkus.value[0]?.id
+  }
+  return activeSkus.value[0]?.id
+})
+
+onMounted(() => load())
+
 async function onHover() {
   hovered.value = true
   if (hasFetched.value) return
@@ -72,6 +83,17 @@ async function onHover() {
     <div class="pc-img">
       <img v-if="displayImageUrl" :src="displayImageUrl" :alt="product.name" class="pc-img-photo" />
       <span v-else class="pc-img-placeholder">{{ product.category?.name ?? '—' }}</span>
+      <button
+        v-if="wishlistSkuId"
+        class="pc-heart"
+        :class="{ 'pc-heart--active': isWishlisted(wishlistSkuId) }"
+        @click.stop="toggle(wishlistSkuId)"
+        :aria-label="isWishlisted(wishlistSkuId) ? 'Remove from wishlist' : 'Add to wishlist'"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+      </button>
     </div>
 
     <!-- Info -->
@@ -135,6 +157,20 @@ async function onHover() {
 .pc-img { aspect-ratio: 3/4; background: var(--line-2); position: relative; overflow: hidden; flex-shrink: 0; }
 .pc-img-photo { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s ease; }
 .pc:hover .pc-img-photo { transform: scale(1.04); }
+.pc-heart {
+  position: absolute; top: 10px; right: 10px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(250,248,244,.88); backdrop-filter: blur(4px);
+  border: 1px solid var(--line); cursor: pointer; padding: 6px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-3); transition: color .15s, background .15s, transform .15s;
+  z-index: 2;
+}
+.pc-heart:hover { color: #c0415a; background: rgba(250,248,244,.98); transform: scale(1.1); }
+.pc-heart--active { color: #c0415a; }
+.pc-heart--active svg { fill: #c0415a; stroke: #c0415a; }
+.pc-heart svg { width: 100%; height: 100%; }
+
 .pc-img-placeholder {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 500; color: var(--ink-3);

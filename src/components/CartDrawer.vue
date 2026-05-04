@@ -5,12 +5,10 @@ import { useCart, drawerOpen, closeCartDrawer } from '../composables/useCart'
 import { getSkuById, type SkuInfo } from '../services/products'
 
 const router = useRouter()
-const { cart, loading, fetchCart, updateItem, removeItem, doCheckout } = useCart()
+const { cart, loading, fetchCart, updateItem, removeItem } = useCart()
 
 const skuMap = ref<Map<string, SkuInfo>>(new Map())
 const skuLoading = ref(false)
-const placing = ref(false)
-const error = ref('')
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat('id-ID', {
@@ -63,19 +61,9 @@ async function handleRemove(skuId: string) {
   await loadSkuDetails()
 }
 
-async function checkout() {
-  if (!cart.value?.items.length) return
-  error.value = ''
-  placing.value = true
-  try {
-    const order = await doCheckout()
-    closeCartDrawer()
-    router.push(`/payment/${order.id}`)
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to place order.'
-  } finally {
-    placing.value = false
-  }
+function goToCart() {
+  closeCartDrawer()
+  router.push('/cart')
 }
 
 watch(drawerOpen, async (open) => {
@@ -163,13 +151,12 @@ watch(drawerOpen, async (open) => {
 
       <!-- Footer -->
       <div v-if="displayItems.length" class="cd-foot">
-        <p v-if="error" class="auth-error" style="margin-bottom:10px;">{{ error }}</p>
         <div class="cd-subtotal">
           <span>Subtotal</span>
           <span class="cd-subtotal-amount">{{ formatPrice(total) }}</span>
         </div>
-        <button class="btn-primary cd-checkout" :disabled="placing" @click="checkout">
-          {{ placing ? 'Placing Order…' : `Checkout · ${formatPrice(total)}` }}
+        <button class="btn-primary cd-checkout" @click="goToCart">
+          {{ `Checkout · ${formatPrice(total)}` }}
         </button>
         <p class="cd-foot-hint">Taxes and shipping calculated at checkout.</p>
       </div>

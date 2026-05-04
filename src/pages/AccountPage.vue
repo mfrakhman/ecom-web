@@ -6,11 +6,14 @@ import AppFooter from '../components/AppFooter.vue'
 import { getUser, clearToken, getMe, updateMe, uploadPhoto, deletePhoto, type Profile } from '../services/auth'
 import { useCart } from '../composables/useCart'
 import { getMyOrders, type Order } from '../services/orders'
+import { getAddresses, createAddress, updateAddress, setDefaultAddress, deleteAddress, type Address, type AddressForm } from '../services/addresses'
+import { getSkuById, type SkuInfo } from '../services/products'
+import { useWishlist } from '../composables/useWishlist'
 
 const router = useRouter()
 const { reset } = useCart()
 
-const section = ref<'profile' | 'account' | 'orders' | 'security'>('profile')
+const section = ref<'profile' | 'account' | 'orders' | 'addresses' | 'wishlist' | 'security'>('profile')
 
 const jwtUser = getUser()
 const profile  = ref<Profile | null>(null)
@@ -25,7 +28,6 @@ const photoInput     = ref<HTMLInputElement | null>(null)
 
 const editForm = ref({
   firstName: '', lastName: '', dob: '', gender: '' as '' | 'MALE' | 'FEMALE', phone: '',
-  address: { street: '', district: '', subdistrict: '', city: '', province: '', postalCode: '', country: '' },
 })
 
 function syncForm(p: Profile) {
@@ -35,15 +37,6 @@ function syncForm(p: Profile) {
     dob:       p.dob       ?? '',
     gender:    p.gender    ?? '',
     phone:     p.phone     ?? '',
-    address: {
-      street:      p.address?.street      ?? '',
-      district:    p.address?.district    ?? '',
-      subdistrict: p.address?.subdistrict ?? '',
-      city:        p.address?.city        ?? '',
-      province:    p.address?.province    ?? '',
-      postalCode:  p.address?.postalCode  ?? '',
-      country:     p.address?.country     ?? '',
-    },
   }
 }
 
@@ -82,9 +75,12 @@ function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+const { reset: resetWishlist } = useWishlist()
+
 function logout() {
   clearToken()
   reset()
+  resetWishlist()
   router.push('/login')
 }
 
@@ -96,8 +92,6 @@ async function saveProfile() {
     if (!payload.gender) delete payload.gender
     if (!payload.dob) delete payload.dob
     if (!payload.phone) delete payload.phone
-    const hasAddress = Object.values(payload.address).some(Boolean)
-    if (!hasAddress) delete payload.address
     profile.value = await updateMe(payload)
   } catch (e: any) {
     saveError.value = e.message
@@ -133,6 +127,113 @@ async function handleDeletePhoto() {
   }
 }
 
+// ── Addresses ──
+const addrList = ref<Address[]>([])
+const addrLoading = ref(false)
+const addrSaving = ref(false)
+const addrError = ref('')
+const showAddForm = ref(false)
+const editingId = ref<string | null>(null)
+const addrForm = ref<AddressForm>({ street: '', city: '', province: '', country: 'Indonesia' })
+
+function emptyAddrForm(): AddressForm {
+  return { label: '', street: '', district: '', subdistrict: '', city: '', province: '', postalCode: '', country: 'Indonesia', isDefault: false }
+}
+
+async function loadAddresses() {
+  addrLoading.value = true
+  try { addrList.value = await getAddresses() } catch { addrList.value = [] } finally { addrLoading.value = false }
+}
+
+function openAddForm() {
+  editingId.value = null
+  addrForm.value = emptyAddrForm()
+  showAddForm.value = true
+}
+
+function startEdit(addr: Address) {
+  editingId.value = addr.id
+  showAddForm.value = false
+  addrForm.value = {
+    label: addr.label ?? '',
+    street: addr.street,
+    district: addr.district ?? '',
+    subdistrict: addr.subdistrict ?? '',
+    city: addr.city,
+    province: addr.province,
+    postalCode: addr.postalCode ?? '',
+    country: addr.country,
+    isDefault: addr.isDefault,
+  }
+}
+
+function cancelAddrForm() {
+  showAddForm.value = false
+  editingId.value = null
+  addrError.value = ''
+}
+
+async function submitAddrForm() {
+  addrSaving.value = true
+  addrError.value = ''
+  try {
+    const data: AddressForm = { ...addrForm.value }
+    if (!data.label) delete data.label
+    if (!data.district) delete data.district
+    if (!data.subdistrict) delete data.subdistrict
+    if (!data.postalCode) delete data.postalCode
+    if (editingId.value) {
+      await updateAddress(editingId.value, data)
+    } else {
+      await createAddress(data)
+    }
+    cancelAddrForm()
+    await loadAddresses()
+  } catch (e: any) {
+    addrError.value = e.message
+  } finally {
+    addrSaving.value = false
+  }
+}
+
+async function doSetDefault(id: string) {
+  try { await setDefaultAddress(id); await loadAddresses() } catch {}
+}
+
+async function doDelete(id: string) {
+  try { await deleteAddress(id); await loadAddresses() } catch {}
+}
+
+function goSection(s: typeof section.value) {
+  section.value = s
+  if (s === 'addresses' && !addrList.value.length) loadAddresses()
+  if (s === 'wishlist') loadWishlistSection()
+}
+
+// ── Wishlist ──
+const { items: wishlistItems, toggle: toggleWishlist, reload: reloadWishlist } = useWishlist()
+const wishlistSkuMap = ref<Map<string, SkuInfo>>(new Map())
+const wishlistLoading = ref(false)
+
+async function loadWishlistSection() {
+  wishlistLoading.value = true
+  try {
+    await reloadWishlist()
+    const ids = wishlistItems.value.map(i => i.skuId)
+    const results = await Promise.allSettled(ids.map(id => getSkuById(id)))
+    const map = new Map<string, SkuInfo>()
+    results.forEach((r, i) => { if (r.status === 'fulfilled') map.set(ids[i], r.value) })
+    wishlistSkuMap.value = map
+  } finally {
+    wishlistLoading.value = false
+  }
+}
+
+function formatAddress(a: Address) {
+  return [a.street, a.district, a.subdistrict, a.city, a.province, a.postalCode]
+    .filter(Boolean).join(', ')
+}
+
 onMounted(async () => {
   await Promise.allSettled([
     getMe().then(p => { profile.value = p; syncForm(p) }).finally(() => { profileLoading.value = false }),
@@ -161,17 +262,24 @@ onMounted(async () => {
         </div>
 
         <nav class="acct-nav">
-          <button class="acct-nav-item" :class="{ active: section === 'profile' }" @click="section = 'profile'">
+          <button class="acct-nav-item" :class="{ active: section === 'profile' }" @click="goSection('profile')">
             <span>Profile</span>
           </button>
-          <button class="acct-nav-item" :class="{ active: section === 'account' }" @click="section = 'account'">
+          <button class="acct-nav-item" :class="{ active: section === 'account' }" @click="goSection('account')">
             <span>Account</span>
           </button>
-          <button class="acct-nav-item" :class="{ active: section === 'orders' }" @click="section = 'orders'">
+          <button class="acct-nav-item" :class="{ active: section === 'orders' }" @click="goSection('orders')">
             <span>My Orders</span>
             <span v-if="!ordersLoading && stats.orders > 0" class="acct-nav-badge">{{ stats.orders }}</span>
           </button>
-          <button class="acct-nav-item" :class="{ active: section === 'security' }" @click="section = 'security'">
+          <button class="acct-nav-item" :class="{ active: section === 'addresses' }" @click="goSection('addresses')">
+            <span>Addresses</span>
+          </button>
+          <button class="acct-nav-item" :class="{ active: section === 'wishlist' }" @click="goSection('wishlist')">
+            <span>Wishlist</span>
+            <span v-if="wishlistItems.length" class="acct-nav-badge">{{ wishlistItems.length }}</span>
+          </button>
+          <button class="acct-nav-item" :class="{ active: section === 'security' }" @click="goSection('security')">
             <span>Security</span>
           </button>
           <button class="acct-nav-item acct-nav-item--danger" @click="logout">
@@ -284,38 +392,6 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <div class="acct-section-label">Address</div>
-              <div class="acct-fields">
-                <div class="acct-field acct-field--full">
-                  <label>Street</label>
-                  <input v-model="editForm.address.street" placeholder="Street address" />
-                </div>
-                <div class="acct-field">
-                  <label>District</label>
-                  <input v-model="editForm.address.district" placeholder="District" />
-                </div>
-                <div class="acct-field">
-                  <label>Subdistrict</label>
-                  <input v-model="editForm.address.subdistrict" placeholder="Subdistrict" />
-                </div>
-                <div class="acct-field">
-                  <label>City</label>
-                  <input v-model="editForm.address.city" placeholder="City" />
-                </div>
-                <div class="acct-field">
-                  <label>Province</label>
-                  <input v-model="editForm.address.province" placeholder="Province" />
-                </div>
-                <div class="acct-field">
-                  <label>Postal code</label>
-                  <input v-model="editForm.address.postalCode" placeholder="12345" />
-                </div>
-                <div class="acct-field">
-                  <label>Country</label>
-                  <input v-model="editForm.address.country" placeholder="Indonesia" />
-                </div>
-              </div>
-
               <p v-if="saveError" class="field-error" style="margin-top:12px;">{{ saveError }}</p>
               <div class="acct-form-actions">
                 <button type="submit" class="btn-primary" :disabled="saving">
@@ -356,7 +432,7 @@ onMounted(async () => {
           <div class="acct-card">
             <div class="acct-card-head">
               <h3 class="acct-card-title">My Orders</h3>
-              <span class="acct-card-count" v-if="!ordersLoading">{{ stats.orders }} orders</span>
+              <button class="btn-ghost" style="font-size:12px; padding:6px 12px;" @click="router.push('/orders')">View all</button>
             </div>
 
             <div v-if="ordersLoading" class="acct-state"><div class="spinner" /></div>
@@ -396,6 +472,193 @@ onMounted(async () => {
                 >
                   Pay now
                 </button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ── Addresses section ── -->
+        <template v-else-if="section === 'addresses'">
+          <div class="acct-card">
+            <div class="acct-card-head">
+              <h3 class="acct-card-title">Delivery Addresses</h3>
+              <button class="btn-outline" style="font-size:12px; padding:6px 14px;" @click="openAddForm" :disabled="showAddForm">
+                + Add new
+              </button>
+            </div>
+
+            <div v-if="addrLoading" class="acct-state"><div class="spinner" /></div>
+
+            <template v-else>
+              <!-- Address list -->
+              <div v-if="addrList.length" class="addr-list">
+                <template v-for="addr in addrList" :key="addr.id">
+                  <!-- View mode -->
+                  <div v-if="editingId !== addr.id" class="addr-card">
+                    <div class="addr-card-body">
+                      <div class="addr-card-label-row">
+                        <span v-if="addr.label" class="addr-card-label">{{ addr.label }}</span>
+                        <span v-if="addr.isDefault" class="addr-default-badge">Default</span>
+                      </div>
+                      <p class="addr-card-line">{{ formatAddress(addr) }}</p>
+                    </div>
+                    <div class="addr-card-actions">
+                      <button v-if="!addr.isDefault" class="addr-action-btn" @click="doSetDefault(addr.id)">Set default</button>
+                      <button class="addr-action-btn" @click="startEdit(addr)">Edit</button>
+                      <button class="addr-action-btn addr-action-btn--danger" @click="doDelete(addr.id)">Delete</button>
+                    </div>
+                  </div>
+
+                  <!-- Inline edit form -->
+                  <div v-else class="addr-form-box">
+                    <p class="addr-form-title">Edit address</p>
+                    <div class="acct-fields" style="margin-bottom:12px;">
+                      <div class="acct-field">
+                        <label>Label (optional)</label>
+                        <input v-model="addrForm.label" placeholder="Home, Office…" />
+                      </div>
+                      <div class="acct-field acct-field--full">
+                        <label>Street *</label>
+                        <input v-model="addrForm.street" placeholder="Street address" />
+                      </div>
+                      <div class="acct-field">
+                        <label>District</label>
+                        <input v-model="addrForm.district" placeholder="District" />
+                      </div>
+                      <div class="acct-field">
+                        <label>Subdistrict</label>
+                        <input v-model="addrForm.subdistrict" placeholder="Subdistrict" />
+                      </div>
+                      <div class="acct-field">
+                        <label>City *</label>
+                        <input v-model="addrForm.city" placeholder="City" />
+                      </div>
+                      <div class="acct-field">
+                        <label>Province *</label>
+                        <input v-model="addrForm.province" placeholder="Province" />
+                      </div>
+                      <div class="acct-field">
+                        <label>Postal code</label>
+                        <input v-model="addrForm.postalCode" placeholder="12345" />
+                      </div>
+                      <div class="acct-field">
+                        <label>Country</label>
+                        <input v-model="addrForm.country" placeholder="Indonesia" />
+                      </div>
+                    </div>
+                    <label class="addr-default-check">
+                      <input type="checkbox" v-model="addrForm.isDefault" /> Set as default
+                    </label>
+                    <p v-if="addrError" class="field-error" style="margin-top:8px;">{{ addrError }}</p>
+                    <div class="addr-form-actions">
+                      <button class="btn-ghost" @click="cancelAddrForm">Cancel</button>
+                      <button class="btn-primary" :disabled="addrSaving || !addrForm.street || !addrForm.city || !addrForm.province" @click="submitAddrForm">
+                        {{ addrSaving ? 'Saving…' : 'Save' }}
+                      </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+
+              <div v-else-if="!showAddForm" class="acct-state">
+                <p>No addresses saved yet.</p>
+              </div>
+
+              <!-- Add form -->
+              <div v-if="showAddForm" class="addr-form-box" :style="addrList.length ? 'margin-top:16px;' : ''">
+                <p class="addr-form-title">New address</p>
+                <div class="acct-fields" style="margin-bottom:12px;">
+                  <div class="acct-field">
+                    <label>Label (optional)</label>
+                    <input v-model="addrForm.label" placeholder="Home, Office…" />
+                  </div>
+                  <div class="acct-field acct-field--full">
+                    <label>Street *</label>
+                    <input v-model="addrForm.street" placeholder="Street address" />
+                  </div>
+                  <div class="acct-field">
+                    <label>District</label>
+                    <input v-model="addrForm.district" placeholder="District" />
+                  </div>
+                  <div class="acct-field">
+                    <label>Subdistrict</label>
+                    <input v-model="addrForm.subdistrict" placeholder="Subdistrict" />
+                  </div>
+                  <div class="acct-field">
+                    <label>City *</label>
+                    <input v-model="addrForm.city" placeholder="City" />
+                  </div>
+                  <div class="acct-field">
+                    <label>Province *</label>
+                    <input v-model="addrForm.province" placeholder="Province" />
+                  </div>
+                  <div class="acct-field">
+                    <label>Postal code</label>
+                    <input v-model="addrForm.postalCode" placeholder="12345" />
+                  </div>
+                  <div class="acct-field">
+                    <label>Country</label>
+                    <input v-model="addrForm.country" placeholder="Indonesia" />
+                  </div>
+                </div>
+                <label class="addr-default-check">
+                  <input type="checkbox" v-model="addrForm.isDefault" /> Set as default
+                </label>
+                <p v-if="addrError" class="field-error" style="margin-top:8px;">{{ addrError }}</p>
+                <div class="addr-form-actions">
+                  <button class="btn-ghost" @click="cancelAddrForm">Cancel</button>
+                  <button class="btn-primary" :disabled="addrSaving || !addrForm.street || !addrForm.city || !addrForm.province" @click="submitAddrForm">
+                    {{ addrSaving ? 'Saving…' : 'Add address' }}
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- ── Wishlist section ── -->
+        <template v-else-if="section === 'wishlist'">
+          <div class="acct-card">
+            <div class="acct-card-head">
+              <h3 class="acct-card-title">Wishlist</h3>
+              <span class="acct-card-count" v-if="!wishlistLoading">{{ wishlistItems.length }} saved</span>
+            </div>
+
+            <div v-if="wishlistLoading" class="acct-state"><div class="spinner" /></div>
+
+            <div v-else-if="!wishlistItems.length" class="acct-state">
+              <p>Nothing saved yet.</p>
+              <button class="btn-outline" style="margin-top:12px;" @click="router.push('/')">Browse products</button>
+            </div>
+
+            <div v-else class="wl-list">
+              <div v-for="item in wishlistItems" :key="item.id" class="wl-row">
+                <div class="wl-img-wrap">
+                  <img
+                    v-if="wishlistSkuMap.get(item.skuId)?.product?.images?.find(i => i.colorId === wishlistSkuMap.get(item.skuId)!.colorId)?.imageUrl"
+                    :src="wishlistSkuMap.get(item.skuId)!.product!.images!.find(i => i.colorId === wishlistSkuMap.get(item.skuId)!.colorId)!.imageUrl"
+                    class="wl-img"
+                  />
+                  <div v-else class="wl-img" :style="{ background: wishlistSkuMap.get(item.skuId)?.color?.hex ?? 'var(--line)' }" />
+                </div>
+                <div class="wl-info">
+                  <p class="wl-name">{{ wishlistSkuMap.get(item.skuId)?.product?.name ?? item.skuId.slice(0, 8) + '…' }}</p>
+                  <p class="wl-meta">
+                    <span v-if="wishlistSkuMap.get(item.skuId)?.skuCode">{{ wishlistSkuMap.get(item.skuId)?.skuCode }}</span>
+                    <span v-if="wishlistSkuMap.get(item.skuId)?.size"> · {{ wishlistSkuMap.get(item.skuId)?.size?.name }}</span>
+                  </p>
+                  <p class="wl-price">{{ wishlistSkuMap.get(item.skuId) ? formatPrice(Number(wishlistSkuMap.get(item.skuId)!.price)) : '—' }}</p>
+                </div>
+                <div class="wl-actions">
+                  <button
+                    class="btn-primary"
+                    style="font-size:12px; padding:7px 14px;"
+                    @click="router.push(`/products/${wishlistSkuMap.get(item.skuId)?.product?.id ?? ''}`)"
+                  >
+                    View
+                  </button>
+                  <button class="wl-remove-btn" @click="toggleWishlist(item.skuId)">Remove</button>
+                </div>
               </div>
             </div>
           </div>
@@ -601,6 +864,47 @@ onMounted(async () => {
 .status--failed { background: rgba(180,61,61,.08); color: var(--warn); }
 .acct-order-pay-btn { padding: 6px 14px; font-size: 12px; flex-shrink: 0; }
 
+/* Wishlist */
+.wl-list { display: flex; flex-direction: column; }
+.wl-row { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.wl-row:last-child { border-bottom: none; }
+.wl-img { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); display: block; flex-shrink: 0; }
+.wl-info { flex: 1; min-width: 0; }
+.wl-name { font-size: 14px; font-weight: 500; color: var(--ink); margin: 0 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wl-meta { font-size: 12px; color: var(--ink-3); margin: 0 0 4px; }
+.wl-price { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 0; }
+.wl-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.wl-remove-btn { font-size: 11px; color: var(--ink-3); background: none; border: none; cursor: pointer; font-family: var(--sans); padding: 2px 6px; border-radius: 6px; }
+.wl-remove-btn:hover { color: var(--warn); }
+
 /* Security */
 .acct-security-note { font-size: 14px; color: var(--ink-3); margin: 0 0 20px; line-height: 1.6; }
+
+/* Addresses */
+.addr-list { display: flex; flex-direction: column; gap: 12px; }
+.addr-card {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 14px 16px; border: 1.5px solid var(--line); border-radius: 12px;
+}
+.addr-card-body { flex: 1; min-width: 0; }
+.addr-card-label-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.addr-card-label { font-weight: 600; font-size: 14px; color: var(--ink); }
+.addr-default-badge {
+  font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+  background: var(--line-2); color: var(--ink-3); border: 1px solid var(--line);
+}
+.addr-card-line { font-size: 13px; color: var(--ink-2); margin: 0; line-height: 1.5; }
+.addr-card-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.addr-action-btn {
+  font-size: 12px; color: var(--ink-3); background: none; border: none; cursor: pointer;
+  padding: 2px 6px; border-radius: 6px; font-family: var(--sans); white-space: nowrap; transition: color .14s;
+}
+.addr-action-btn:hover { color: var(--ink); background: var(--line-2); }
+.addr-action-btn--danger:hover { color: var(--warn); background: rgba(180,61,61,.06); }
+.addr-form-box {
+  padding: 18px; background: var(--line-2); border-radius: 12px; border: 1.5px solid var(--line);
+}
+.addr-form-title { font-size: 13px; font-weight: 600; color: var(--ink); margin: 0 0 14px; }
+.addr-default-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.addr-form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
 </style>

@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { useCart } from '../composables/useCart'
 import { getSkuById, type SkuInfo } from '../services/products'
+import { getAddresses, type Address } from '../services/addresses'
 
 const router = useRouter()
 const { cart, loading, fetchCart, updateItem, removeItem, doCheckout } = useCart()
@@ -13,6 +14,22 @@ const skuMap = ref<Map<string, SkuInfo>>(new Map())
 const skuLoading = ref(false)
 const placing = ref(false)
 const error = ref('')
+
+// address picker
+const showAddressPicker = ref(false)
+const addresses = ref<Address[]>([])
+const selectedAddressId = ref<string | null>(null)
+const addressLoading = ref(false)
+const addressError = ref('')
+
+const selectedAddress = computed(() =>
+  addresses.value.find(a => a.id === selectedAddressId.value) ?? null
+)
+
+function formatAddress(a: Address) {
+  return [a.street, a.district, a.subdistrict, a.city, a.province, a.postalCode]
+    .filter(Boolean).join(', ')
+}
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat('id-ID', {
@@ -61,12 +78,31 @@ async function handleRemove(skuId: string) {
   await loadSkuDetails()
 }
 
-async function placeOrder() {
-  if (!cart.value?.items.length) return
+async function openAddressPicker() {
+  showAddressPicker.value = true
+  addressLoading.value = true
+  addressError.value = ''
+  selectedAddressId.value = null
+  addresses.value = []
+  try {
+    addresses.value = await getAddresses()
+    const def = addresses.value.find(a => a.isDefault) ?? addresses.value[0]
+    if (def) selectedAddressId.value = def.id
+  } catch (e) {
+    addressError.value = e instanceof Error ? e.message : 'Failed to load addresses.'
+  } finally {
+    addressLoading.value = false
+  }
+}
+
+async function confirmOrder() {
+  if (!selectedAddressId.value) return
   error.value = ''
   placing.value = true
+  showAddressPicker.value = false
   try {
-    const order = await doCheckout()
+    const addr = selectedAddress.value
+    const order = await doCheckout(addr ? { ...addr } : undefined)
     router.push(`/payment/${order.id}`)
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to place order.'
@@ -156,7 +192,7 @@ onMounted(async () => {
 
           <p v-if="error" class="auth-error" style="margin-top:12px;">{{ error }}</p>
 
-          <button class="btn-primary" style="width:100%; margin-top:16px;" :disabled="placing" @click="placeOrder">
+          <button class="btn-primary" style="width:100%; margin-top:16px;" :disabled="placing" @click="openAddressPicker">
             {{ placing ? 'Placing Order…' : 'Place Order' }}
           </button>
           <button class="btn-ghost" style="width:100%; margin-top:8px;" @click="router.push('/')">
@@ -168,6 +204,60 @@ onMounted(async () => {
   </main>
 
   <AppFooter />
+
+  <!-- Address picker modal -->
+  <Teleport to="body">
+    <div v-if="showAddressPicker" class="modal-backdrop" @click.self="showAddressPicker = false">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 class="modal-title">Select Delivery Address</h3>
+          <button class="modal-close" @click="showAddressPicker = false">✕</button>
+        </div>
+
+        <div v-if="addressLoading" class="modal-loading">
+          <div class="spinner" /><p>Loading addresses…</p>
+        </div>
+
+        <div v-else-if="addressError" class="modal-empty">
+          <p style="color:var(--warn);">{{ addressError }}</p>
+          <button class="btn-outline" style="margin-top:16px;" @click="openAddressPicker">Retry</button>
+        </div>
+
+        <template v-else-if="addresses.length">
+          <div class="addr-list">
+            <label
+              v-for="a in addresses"
+              :key="a.id"
+              class="addr-option"
+              :class="{ 'addr-option--selected': selectedAddressId === a.id }"
+            >
+              <input type="radio" :value="a.id" v-model="selectedAddressId" class="addr-radio" />
+              <div class="addr-info">
+                <div class="addr-label-row">
+                  <span v-if="a.label" class="addr-label">{{ a.label }}</span>
+                  <span v-if="a.isDefault" class="addr-default-badge">Default</span>
+                </div>
+                <p class="addr-line">{{ formatAddress(a) }}</p>
+              </div>
+            </label>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-ghost" @click="router.push('/account')">Manage Addresses</button>
+            <button class="btn-primary" :disabled="!selectedAddressId" @click="confirmOrder">
+              Confirm Order
+            </button>
+          </div>
+        </template>
+
+        <div v-else class="modal-empty">
+          <p>No addresses saved yet.</p>
+          <button class="btn-primary" style="margin-top:16px;" @click="router.push('/account')">
+            Add Address
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -198,4 +288,27 @@ onMounted(async () => {
 .cart-summary-divider { height: 1px; background: var(--line); margin: 12px 0; }
 .cart-summary-total { font-weight: 700; font-size: 16px; color: var(--ink); }
 .products-state { padding: 80px 24px; text-align: center; color: var(--ink-3); display: flex; flex-direction: column; align-items: center; gap: 16px; }
+
+/* Modal */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.modal-box { background: var(--surface); border-radius: 20px; width: 100%; max-width: 480px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 24px 64px -16px rgba(22,20,15,.25); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 24px 24px 0; }
+.modal-title { font-family: var(--serif); font-size: 18px; font-weight: 400; color: var(--ink); margin: 0; }
+.modal-close { background: none; border: none; font-size: 16px; color: var(--ink-3); cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+.modal-close:hover { background: var(--line-2); }
+.modal-loading { padding: 48px 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--ink-3); font-size: 14px; }
+.modal-empty { padding: 48px 24px; text-align: center; color: var(--ink-3); }
+.addr-list { padding: 16px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.addr-option { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border: 1.5px solid var(--line); border-radius: 12px; cursor: pointer; transition: border-color .15s, background .15s; }
+.addr-option--selected { border-color: var(--gold); background: rgba(var(--gold-rgb, 180,140,80),.06); }
+.addr-option:hover { border-color: var(--ink-3); }
+.addr-radio { margin-top: 3px; accent-color: var(--gold); flex-shrink: 0; }
+.addr-info { flex: 1; min-width: 0; }
+.addr-label-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.addr-label { font-weight: 600; font-size: 14px; color: var(--ink); }
+.addr-default-badge { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: var(--line-2); color: var(--ink-3); border: 1px solid var(--line); }
+.addr-line { font-size: 13px; color: var(--ink-2); margin: 0; line-height: 1.5; }
+.modal-footer { display: flex; gap: 10px; padding: 16px 24px 24px; border-top: 1px solid var(--line); margin-top: 4px; }
+.modal-footer .btn-ghost { flex: 1; }
+.modal-footer .btn-primary { flex: 2; }
 </style>

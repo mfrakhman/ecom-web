@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar.vue'
 import AppFooter from '../components/AppFooter.vue'
 import { getProductDetail, type ProductDetail, type SkuInfo } from '../services/products'
 import { useCart } from '../composables/useCart'
+import { useWishlist } from '../composables/useWishlist'
 import { getToken } from '../services/auth'
 
 const route = useRoute()
@@ -42,6 +43,7 @@ const displayImageUrl = computed(() => colorImages.value[activeImageIndex.value]
 watch(() => selectedSku.value?.colorId, () => { activeImageIndex.value = 0 })
 
 const { addItem } = useCart()
+const { isWishlisted, toggle: toggleWishlist, load: loadWishlist } = useWishlist()
 const addedToCart = ref(false)
 const adding = ref(false)
 const addError = ref('')
@@ -63,6 +65,7 @@ async function handleAddToCart() {
 }
 
 onMounted(async () => {
+  loadWishlist()
   try {
     const prod = await getProductDetail(id)
     product.value = prod
@@ -166,11 +169,22 @@ onMounted(async () => {
               </div>
 
               <p v-if="addError" class="auth-error" style="margin-top:8px;">{{ addError }}</p>
-              <div style="display:flex; gap:8px; margin-top:8px;">
+              <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
                 <button class="btn-primary" :disabled="!inStock || adding" @click="handleAddToCart">
                   {{ adding ? 'Adding…' : addedToCart ? '✓ Added!' : inStock ? 'Add to Cart' : 'Out of Stock' }}
                 </button>
                 <button v-if="inStock" class="btn-outline" @click="router.push('/cart')">View Cart</button>
+                <button
+                  v-if="getToken()"
+                  class="pd-heart"
+                  :class="{ 'pd-heart--active': isWishlisted(selectedSku.id) }"
+                  @click="toggleWishlist(selectedSku.id)"
+                  :aria-label="isWishlisted(selectedSku.id) ? 'Remove from wishlist' : 'Save to wishlist'"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                </button>
               </div>
             </template>
 
@@ -217,6 +231,16 @@ onMounted(async () => {
 .pd-stock-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex-shrink: 0; }
 .pd-stock-dot--oos { background: var(--warn); }
 .pd-no-variants { font-size: 14px; color: var(--ink-3); margin: 0; }
+.pd-heart {
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+  background: var(--line-2); border: 1.5px solid var(--line);
+  cursor: pointer; padding: 10px; display: flex; align-items: center; justify-content: center;
+  color: var(--ink-3); transition: color .15s, border-color .15s, transform .15s;
+}
+.pd-heart:hover { color: #c0415a; border-color: #c0415a; transform: scale(1.08); }
+.pd-heart--active { color: #c0415a; border-color: #c0415a; }
+.pd-heart--active svg { fill: #c0415a; stroke: #c0415a; }
+.pd-heart svg { width: 100%; height: 100%; }
 .products-state { padding: 80px 24px; text-align: center; color: var(--ink-3); display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .state-error { color: var(--warn); }
 </style>

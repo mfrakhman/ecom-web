@@ -41,8 +41,8 @@ export function useCart() {
     cart.value = await getCart()
   }
 
-  async function doCheckout() {
-    return checkout()
+  async function doCheckout(deliveryAddress?: Record<string, any>) {
+    return checkout(deliveryAddress)
   }
 
   function reset() {

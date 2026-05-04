@@ -21,6 +21,7 @@ export interface Order {
   qrImageUrl: string | null
   qrExpiresAt: string | null
   items: OrderItem[]
+  deliveryAddress: Record<string, any> | null
   createdAt: string
 }
 

@@ -113,11 +113,6 @@ export function resetPassword(token: string, password: string) {
   return post<{ message: string }>('/auth/reset-password', { token, password })
 }
 
-export interface Address {
-  street?: string; district?: string; subdistrict?: string
-  city?: string; province?: string; postalCode?: string; country?: string
-}
-
 export interface Profile {
   id: string
   email: string
@@ -128,7 +123,6 @@ export interface Profile {
   dob: string | null
   gender: 'MALE' | 'FEMALE' | null
   phone: string | null
-  address: Address | null
   profilePhotoUrl: string | null
   createdAt: string
   updatedAt: string

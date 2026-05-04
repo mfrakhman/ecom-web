@@ -58,6 +58,6 @@ export async function clearCart(): Promise<void> {
   await req('DELETE', '/order/cart')
 }
 
-export function checkout(): Promise<{ id: string; status: string }> {
-  return req('POST', '/order/cart/checkout')
+export function checkout(deliveryAddress?: Record<string, any>): Promise<{ id: string; status: string }> {
+  return req('POST', '/order/cart/checkout', deliveryAddress ? { deliveryAddress } : {})
 }
